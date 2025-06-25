@@ -1,0 +1,17 @@
+[package]
+name = "talea"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "talea"
+path = "src/lib.rs"
+
+[[bin]]
+name = "talea"
+path = "src/main.rs"
+
+
+[dependencies]
+lexer = "0.1.18"
+runtime = "0.0.0"
