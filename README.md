@@ -5,7 +5,6 @@
 
 Named after the Latin word *talea*—meaning "a narrative thread" or "a story branch"—Talea's core philosophy is to make complex NLP workflows as intuitive as writing a list of instructions. It achieves this by combining a simple, English-like syntax with the immense power of existing programming ecosystems like Python and R.
 
-[![Rust](https://github.com/your-username/talea/actions/workflows/rust.yml/badge.svg)](https://github.com/your-username/talea/actions/workflows/rust.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
