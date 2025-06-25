@@ -1,0 +1,10 @@
+# .cargo/config.toml
+
+[build]
+rustflags = [
+    # Flag 1: Tells the linker where to find the library during the build
+    "-L", "/opt/anaconda3/envs/talea-nlp/lib",
+    
+    # Flag 2: Embeds the library path into the final executable for runtime
+    "-C", "link-arg=-Wl,-rpath,/opt/anaconda3/envs/talea-nlp/lib"
+]

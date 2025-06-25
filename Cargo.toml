@@ -13,5 +13,4 @@ path = "src/main.rs"
 
 
 [dependencies]
-lexer = "0.1.18"
-runtime = "0.0.0"
+pyo3 = { version = "0.22.1", features = ["auto-initialize"] }
