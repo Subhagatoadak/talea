@@ -27,7 +27,6 @@ jobs:
         uses: actions/checkout@v4
 
       # Step 2: Set up the Rust toolchain with a stable version
-      # THIS IS THE CORRECTED LINE: using the official community action for Rust.
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -39,23 +38,28 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      # Step 4: Install the required Python packages using pip
-      # This step is crucial for the interpreter's FFI calls to succeed.
+      # Step 4: Install Python development headers (THE FIX)
+      # This provides the `python3-config` utility needed for linking.
+      - name: Install Python development headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python${{ env.PYTHON_VERSION }}-dev
+
+      # Step 5: Install the required Python packages using pip
       - name: Install Python packages
         run: |
           python -m pip install --upgrade pip
           pip install -U spacy
-          python -m spacy download en_core_web_md
+          python -m spacy download en_core_web_sm
 
-      # Step 5: Build the Rust project
-      # We add RUSTFLAGS to tell the Rust compiler where to find the Python library
-      # on the GitHub Actions runner. This makes the build more robust.
+      # Step 6: Build the Rust project
+      # We add RUSTFLAGS to tell the Rust compiler where to find the Python library.
       - name: Build project
         run: |
           PYTHON_LIB_PATH=$(python3-config --config-dir)/../lib
           RUSTFLAGS="-L $PYTHON_LIB_PATH" cargo build --verbose
 
-      # Step 6: Run tests
+      # Step 7: Run tests
       # The same linker path is needed for the test suite to correctly find Python.
       - name: Run tests
         run: |
