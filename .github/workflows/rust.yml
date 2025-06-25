@@ -1,0 +1,63 @@
+# .github/workflows/rust.yml
+
+# A more descriptive name for the workflow
+name: Talea Rust CI with Python Dependencies
+
+# Triggers the workflow on push or pull request events but only for the "main" branch
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+# Sets default environment variables for all jobs
+env:
+  CARGO_TERM_COLOR: always
+  # Define the Python version to use across the workflow
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # A single job called "build-and-test" that runs on the latest Ubuntu runner
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # Step 2: Set up the Rust toolchain with a stable version
+      - name: Set up Rust
+        uses: actions/toolchain@v1
+        with:
+          toolchain: stable
+          components: rustc, cargo, clippy
+
+      # Step 3: Set up a Python environment using the version defined above
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      # Step 4: Install the required Python packages using pip
+      # This step is crucial for the interpreter's FFI calls to succeed.
+      - name: Install Python packages
+        run: |
+          python -m pip install --upgrade pip
+          pip install -U spacy
+          python -m spacy download en_core_web_md
+
+      # Step 5: Build the Rust project
+      # We add RUSTFLAGS to tell the Rust compiler where to find the Python library
+      # on the GitHub Actions runner. This makes the build more robust.
+      - name: Build project
+        run: |
+          PYTHON_LIB_PATH=$(python3-config --config-dir)/../lib
+          RUSTFLAGS="-L $PYTHON_LIB_PATH" cargo build --verbose
+
+      # Step 6: Run tests
+      # The same linker path is needed for the test suite to correctly find Python.
+      - name: Run tests
+        run: |
+          PYTHON_LIB_PATH=$(python3-config --config-dir)/../lib
+          RUSTFLAGS="-L $PYTHON_LIB_PATH" cargo test --verbose
