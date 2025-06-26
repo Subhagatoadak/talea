@@ -43,7 +43,7 @@ You will need the following software installed on your system:
 
     # Install spaCy and its model
     pip install -U spacy
-    python -m spacy download en_core_web_sm
+    python -m spacy download en_core_web_md
     ```
 
 ### 2. Clone & Configure the Project

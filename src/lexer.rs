@@ -16,6 +16,7 @@ pub enum Token {
     Sort, Order, Group,
     Add, Subtract, Multiply, Divide,
     Help, Docs, History, Run, Execute, Exit, Quit,
+    Use, Python, R, Java, Scala, Ruby,Julia,
 
     // === Nouns (Units, Targets, Concepts) ===
     Words, Sentences, Lines, Paragraphs, Characters, Tokens, Types, Uniques,
@@ -113,6 +114,8 @@ impl<'a> Lexer<'a> {
             "with" => Token::With, "containing" => Token::Containing, "starting_with" => Token::StartingWith,
             "ending_with" => Token::EndingWith, "ascending" => Token::Ascending, "descending" => Token::Descending,
             "top" => Token::Top, "bottom" => Token::Bottom,
+            "use" => Token::Use, "python" => Token::Python, "r" => Token::R,  // New
+
             _ => Token::Identifier(text.to_string()),
         }
     }

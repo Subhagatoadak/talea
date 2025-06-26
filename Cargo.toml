@@ -14,3 +14,7 @@ path = "src/main.rs"
 
 [dependencies]
 pyo3 = { version = "0.22.1", features = ["auto-initialize"] }
+extendr-api = "0.8.0"
+# This dependency is required for the R backend macros to work correctly.
+extendr-engine = "0.8.0"
+jni = "0.21.0"
