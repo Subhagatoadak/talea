@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::fs;
+use shellexpand;
 
 // FFI Imports
 use pyo3::prelude::*;
@@ -65,18 +66,33 @@ impl Interpreter {
         if !self.active_backends.contains(&Backend::R) { return Err("The 'summarize' command requires the R backend. Run 'use r' first.".to_string()); }
         let source_list = if let TaleaValue::List(l) = self.evaluate_expression(source)? { l } else { return Err("Summarize can only be applied to a list of numbers.".to_string()); };
         let dest_name = self.get_identifier_name(destination)?;
-        let numbers: Vec<f64> = source_list.iter().filter_map(|val| if let TaleaValue::Number(n) = val { Some(*n as f64) } else { None }).collect();
+        let numbers_as_strings: Vec<String> = source_list.iter()
+            .filter_map(|val| {
+                if let TaleaValue::Number(n) = val {
+                    Some(n.to_string())
+                } else {
+                    None
+                }
+            })
+            .collect();
         println!("[Interpreter: Calling R to summarize data...]");
         
         // FIX: Use the aliased prelude and handle the R result type correctly.
         r_prelude::test! {
-                // Construct the R command as a string
-            let r_command = format!("summary(c({}))", numbers.iter().map(|n| n.to_string()).collect::<Vec<_>>().join(","));
-            // Evaluate the string and get the result
+            // 1. Construct the complete R command as a string.
+            let r_command = format!("capture.output(print(summary(c({}))))", numbers_as_strings.join(","));
+
+            // 2. Evaluate the string command.
             let summary_result = r_prelude::eval_string(&r_command).map_err(|e| e.to_string())?;
-            let summary_output = format!("{:?}", summary_result);
+
+            // 3. Extract the captured text lines and join them into a single string.
+            let summary_output = summary_result.as_str_vector()
+                .unwrap_or_default()
+                .join("\n");
+            
             self.environment.define(dest_name, TaleaValue::String(summary_output));
         }
+            
         Ok(())
     }
 
@@ -168,7 +184,26 @@ impl Interpreter {
     fn execute_save_statement(&mut self, source: &Expression, destination: &Expression) -> std::result::Result<(), String> { let source_val = self.evaluate_expression(source)?; let file_path = self.get_string_value(destination)?; let content_to_save = source_val.to_string(); fs::write(&file_path, content_to_save).map_err(|e| format!("Failed to write to file '{}': {}", file_path, e))?; println!("[Interpreter: Successfully saved content to '{}']", file_path); Ok(()) }
     fn execute_arithmetic_statement(&mut self, op: &ArithmeticOp, value: &Expression, target: &Expression, destination: &Option<Expression>) -> std::result::Result<(), String> { let target_name = self.get_identifier_name(target)?; let current_val = self.environment.get(&target_name).ok_or_else(|| format!("Variable '{}' not found.", target_name))?; let current_num = if let TaleaValue::Number(n) = current_val { n } else { return Err(format!("Cannot perform arithmetic on '{}'. Not a number.", target_name)); }; let operand_val = self.evaluate_expression(value)?; let operand_num = if let TaleaValue::Number(n) = operand_val { n } else { return Err("Arithmetic operations require a number.".to_string()); }; let result = match op { ArithmeticOp::Add => current_num + operand_num, ArithmeticOp::Subtract => current_num - operand_num, ArithmeticOp::Multiply => current_num * operand_num, ArithmeticOp::Divide => { if operand_num == 0 { return Err("Division by zero.".to_string()); } current_num / operand_num } }; let final_dest_name = if let Some(dest_expr) = destination { self.get_identifier_name(dest_expr)? } else { target_name.clone() }; self.environment.define(final_dest_name, TaleaValue::Number(result)); Ok(()) }
     fn execute_define_statement(&mut self, name: &Expression, value: &Expression) -> std::result::Result<(), String> { let var_name = self.get_identifier_name(name)?; let value = self.evaluate_expression(value)?; self.environment.define(var_name, value); Ok(()) }
-    fn execute_load_statement(&mut self, source: &Expression, alias: &Expression) -> std::result::Result<(), String> { let var_name = self.get_identifier_name(alias)?; let file_path = self.get_string_value(source)?; let file_content = fs::read_to_string(&file_path).map_err(|e| format!("Failed to read file '{}': {}", file_path, e))?; println!("[Interpreter: Successfully read {} bytes from '{}']", file_content.len(), file_path); self.environment.define(var_name, TaleaValue::String(file_content)); Ok(()) }
+    fn execute_load_statement(&mut self, source: &Expression, alias: &Expression) -> std::result::Result<(), String> {
+                let var_name = self.get_identifier_name(alias)?;
+                let raw_path = self.get_string_value(source)?;
+
+                // --- NEW LOGIC IS HERE ---
+                // 1. Expand the path to handle tildes (e.g., "~/Documents")
+                let expanded_path_cow = shellexpand::tilde(&raw_path);
+                // 2. Convert it to a proper PathBuf for the OS
+                let file_path = std::path::PathBuf::from(expanded_path_cow.as_ref());
+                // --- END OF NEW LOGIC ---
+
+                println!("[Interpreter: Reading file at '{}']", file_path.display());
+
+                let file_content = fs::read_to_string(&file_path)
+                    .map_err(|e| format!("Failed to read file '{}': {}", file_path.display(), e))?;
+
+                println!("[Interpreter: Successfully read {} bytes]", file_content.len());
+                self.environment.define(var_name, TaleaValue::String(file_content));
+                Ok(())
+            }
     fn execute_tokenize_statement(&mut self, source: &Expression, destination: &Expression) -> std::result::Result<(), String> { let source_val = self.evaluate_expression(source)?; let dest_name = self.get_identifier_name(destination)?; if let TaleaValue::String(s) = source_val { let tokens: Vec<TaleaValue> = s.split_whitespace().map(|word| TaleaValue::String(word.to_string())).collect(); println!("[Interpreter: Tokenized text into {} tokens.]", tokens.len()); self.environment.define(dest_name, TaleaValue::List(tokens)); Ok(()) } else { Err("The 'tokenize' command can only be used on a String value.".to_string()) } }
     fn execute_count_statement(&mut self, unit: &Expression, source: &Expression, destination: &Expression) -> std::result::Result<(), String> {
             let unit_token = if let Expression::Unit(t) = unit { t } else { return Err("Invalid unit for count".to_string()); };

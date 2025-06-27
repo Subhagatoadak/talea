@@ -49,13 +49,15 @@ impl Parser {
     }
     
     fn parse_tag_statement(&mut self) -> Result<Statement, String> {
-        self.advance();
+        self.advance(); // consume 'tag'
         let source = self.parse_expression()?;
         self.consume(Token::With)?;
         let method = self.parse_unit_expression()?;
         self.consume(Token::As)?;
+        // FIX: The destination MUST be a variable name (an identifier).
         let destination = self.parse_identifier_expression()?;
         Ok(Statement::Tag { source, method, destination })
+
     }
 
     fn parse_count_statement(&mut self) -> Result<Statement, String> {
@@ -106,33 +108,35 @@ impl Parser {
 
     // Expression parsing logic
     fn parse_expression(&mut self) -> Result<Expression, String> {
-        let current_token = self.current_token().cloned();
-        if self.is_unit_token(&current_token) {
-            return self.parse_unit_expression();
-        }
-        match current_token {
+        match self.current_token().cloned() {
             Some(Token::String(v)) => { self.advance(); Ok(Expression::StringLiteral(v)) },
-            Some(Token::Identifier(n)) => { self.advance(); Ok(Expression::Identifier(n)) },
             Some(Token::Number(v)) => { self.advance(); Ok(Expression::Number(v)) },
-            Some(tok) => self.parse_keyword_as_identifier(&tok),
-            _ => Err(format!("Expected an expression, but found {:?}", self.current_token())),
+            // For any other token, treat it as a potential identifier.
+            Some(_) => self.parse_identifier_expression(),
+            None => Err("Expected an expression, but found nothing.".to_string()),
         }
     }
-    
+
+    // This function now correctly handles keywords by turning them into identifier strings.
     fn parse_identifier_expression(&mut self) -> Result<Expression, String> {
         match self.current_token().cloned() {
             Some(Token::Identifier(name)) => {
                 self.advance();
                 Ok(Expression::Identifier(name))
             }
-            Some(tok) => self.parse_keyword_as_identifier(&tok),
+            Some(tok) => {
+                let identifier_string = format!("{:?}", tok).to_lowercase();
+                self.advance();
+                Ok(Expression::Identifier(identifier_string))
+            }
             None => Err("Expected a variable name, but found nothing.".to_string())
         }
     }
-    
+
+    // This function specifically looks for unit keywords.
     fn parse_unit_expression(&mut self) -> Result<Expression, String> {
         match self.current_token() {
-            Some(tok) if self.is_unit_token(&Some(tok.clone())) => {
+            Some(tok) if self.is_unit_token(tok) => {
                 let unit_token = tok.clone();
                 self.advance();
                 Ok(Expression::Unit(unit_token))
@@ -140,15 +144,9 @@ impl Parser {
             _ => Err(format!("Expected a unit (like words, ner, etc), but found {:?}", self.current_token())),
         }
     }
-
-    fn parse_keyword_as_identifier(&mut self, token: &Token) -> Result<Expression, String> {
-        let identifier_string = format!("{:?}", token).to_lowercase();
-        self.advance();
-        Ok(Expression::Identifier(identifier_string))
-    }
     
-    fn is_unit_token(&self, token: &Option<Token>) -> bool {
-        matches!(token, Some(Token::Words) | Some(Token::Sentences) | Some(Token::Lines) | Some(Token::Paragraphs) | Some(Token::Characters) | Some(Token::Tokens) | Some(Token::Types) | Some(Token::Uniques) | Some(Token::Length) | Some(Token::POS) | Some(Token::NER) | Some(Token::Entities))
+    fn is_unit_token(&self, token: &Token) -> bool {
+        matches!(token, Token::Words | Token::Sentences | Token::Lines | Token::Paragraphs | Token::Characters | Token::Tokens | Token::Types | Token::Uniques | Token::Length | Token::POS | Token::NER | Token::Entities)
     }
     
     fn current_token(&self) -> Option<&Token> { self.tokens.get(self.position) }

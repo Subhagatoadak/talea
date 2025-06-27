@@ -18,3 +18,33 @@ extendr-api = "0.8.0"
 # This dependency is required for the R backend macros to work correctly.
 extendr-engine = "0.8.0"
 jni = "0.21.0"
+shellexpand = "3.1.0"
+
+
+[build-dependencies]
+reqwest = { version = "0.12", features = ["blocking"] }
+zip = "2.1"
+tar = "0.4"
+flate2 = "1.0"
+# FIX: Added the zstd crate for decompression
+zstd = "0.13"
+
+
+
+# Metadata for creating the macOS .app bundle
+[package.metadata.bundle]
+name = "Talea"
+identifier = "com.insightslib.talea" # <-- IMPORTANT: Change this
+icon = ["assets/icon.icns"]        # You need to create this file
+version = "0.2.0"
+copyright = "Copyright (c) Your Name 2025. All rights reserved."
+category = "public.app-category.education"
+short_description = "A plain-language NLP environment for the humanities."
+resources = ["target/release/python-embedded"]
+
+# Metadata for creating the Windows .msi installer
+[package.metadata.wix]
+upgrade-guid = "f64665b6-56fb-4fb9-ab08-e840dc801eaa" 
+path-guid = "cd556aa4-8d01-487e-b525-f059fe657ee4"    
+license = "LICENSE.txt"                                # You need to create this file
+product-icon = "assets/icon.ico"                       # You need to create this file
