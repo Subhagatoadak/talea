@@ -13,6 +13,7 @@ Named after the Latin word *talea*—meaning "a narrative thread" or "a story br
 
 * **📝 Plain-English Syntax:** Write code that reads like instructions, not cryptic symbols. `load "file.txt" as my_text` does exactly what it says.
 * **🔌 Pluggable Backends:** Seamlessly use powerful libraries from other languages. The current version integrates with **Python's spaCy** for advanced NLP, with a clear path to add R, Java, and more.
+* **📚 Library Imports:** Bring in any Python or R package or script and call its functions directly from Talea.
 * **💡 Interactive by Design:** An interactive REPL (Read-Eval-Print Loop) provides immediate feedback on your commands.
 * **⚙️ Built-in Logic:** Comes with built-in logic for file I/O, variable manipulation, arithmetic, and data filtering.
 * **🌱 Extensible Core:** The modular architecture (Lexer, Parser, Interpreter) makes it easy for contributors to add new commands, parsers, and execution logic.
@@ -129,6 +130,24 @@ Here is a sample session demonstrating some of Talea's capabilities.
 # Save your results to a file
 > save entities to "results.csv"
 [Interpreter: Successfully saved content to 'results.csv']
+```
+
+### Importing Python and R Libraries
+
+You can load external packages or scripts and call their functions directly:
+
+```talea
+> use python
+> import python "math" as m
+> call m sqrt 16 as py_result
+> print py_result
+4
+
+> use r
+> import r "stats" as s
+> call s sqrt 25 as r_result
+> print r_result
+5
 ```
 
 -----

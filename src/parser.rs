@@ -3,10 +3,24 @@
 use crate::ast::{ArithmeticOp, Backend, Expression, FilterCondition, Statement};
 use crate::lexer::Token;
 
-pub struct Parser { tokens: Vec<Token>, position: usize }
+pub struct Parser {
+    tokens: Vec<Token>,
+    position: usize,
+}
 impl Parser {
-    pub fn new(tokens: Vec<Token>) -> Self { Parser { tokens, position: 0 } }
-    pub fn parse(&mut self) -> Result<Vec<Statement>, String> { let mut stmts = Vec::new(); while !self.is_at_end() { stmts.push(self.parse_statement()?); } Ok(stmts) }
+    pub fn new(tokens: Vec<Token>) -> Self {
+        Parser {
+            tokens,
+            position: 0,
+        }
+    }
+    pub fn parse(&mut self) -> Result<Vec<Statement>, String> {
+        let mut stmts = Vec::new();
+        while !self.is_at_end() {
+            stmts.push(self.parse_statement()?);
+        }
+        Ok(stmts)
+    }
 
     fn parse_statement(&mut self) -> Result<Statement, String> {
         match self.current_token().cloned() {
@@ -20,6 +34,8 @@ impl Parser {
             Some(Token::Tokenize) => self.parse_tokenize_statement(),
             Some(Token::Count) => self.parse_count_statement(),
             Some(Token::Tag) => self.parse_tag_statement(),
+            Some(Token::Import) => self.parse_import_statement(),
+            Some(Token::Call) => self.parse_call_statement(),
             Some(Token::Define) => self.parse_define_statement(),
             Some(Token::Add) => self.parse_arithmetic_statement(ArithmeticOp::Add),
             Some(Token::Subtract) => self.parse_arithmetic_statement(ArithmeticOp::Subtract),
@@ -45,9 +61,12 @@ impl Parser {
         let source = self.parse_expression()?;
         self.consume(Token::As)?;
         let destination = self.parse_identifier_expression()?;
-        Ok(Statement::Tokenize { source, destination })
+        Ok(Statement::Tokenize {
+            source,
+            destination,
+        })
     }
-    
+
     fn parse_tag_statement(&mut self) -> Result<Statement, String> {
         self.advance(); // consume 'tag'
         let source = self.parse_expression()?;
@@ -56,8 +75,11 @@ impl Parser {
         self.consume(Token::As)?;
         // FIX: The destination MUST be a variable name (an identifier).
         let destination = self.parse_identifier_expression()?;
-        Ok(Statement::Tag { source, method, destination })
-
+        Ok(Statement::Tag {
+            source,
+            method,
+            destination,
+        })
     }
 
     fn parse_count_statement(&mut self) -> Result<Statement, String> {
@@ -67,7 +89,11 @@ impl Parser {
         let source = self.parse_identifier_expression()?;
         self.consume(Token::As)?;
         let destination = self.parse_identifier_expression()?;
-        Ok(Statement::Count { unit, source, destination })
+        Ok(Statement::Count {
+            unit,
+            source,
+            destination,
+        })
     }
 
     fn parse_define_statement(&mut self) -> Result<Statement, String> {
@@ -78,15 +104,60 @@ impl Parser {
         Ok(Statement::Define { name, value })
     }
 
+    fn parse_import_statement(&mut self) -> Result<Statement, String> {
+        self.advance(); // consume 'import'
+        let backend = match self.current_token() {
+            Some(Token::Python) => Backend::Python,
+            Some(Token::R) => Backend::R,
+            _ => return Err("Expected 'python' or 'r' after 'import'".to_string()),
+        };
+        self.advance();
+        let module = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let alias = self.parse_identifier_expression()?;
+        Ok(Statement::Import {
+            backend,
+            module,
+            alias,
+        })
+    }
+
+    fn parse_call_statement(&mut self) -> Result<Statement, String> {
+        self.advance(); // consume 'call'
+        let library = self.parse_identifier_expression()?;
+        let function = self.parse_identifier_expression()?;
+        let mut args = Vec::new();
+        while let Some(tok) = self.current_token() {
+            if matches!(tok, Token::As) {
+                break;
+            }
+            args.push(self.parse_expression()?);
+        }
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Call {
+            library,
+            function,
+            args,
+            destination,
+        })
+    }
+
     fn parse_arithmetic_statement(&mut self, op: ArithmeticOp) -> Result<Statement, String> {
         self.advance();
         let (target, value) = match op {
             ArithmeticOp::Add | ArithmeticOp::Subtract => {
                 let val = self.parse_expression()?;
-                if self.current_token() == Some(&Token::To) || self.current_token() == Some(&Token::From) { self.advance(); } else { return Err("Expected 'to' or 'from'".to_string()); }
+                if self.current_token() == Some(&Token::To)
+                    || self.current_token() == Some(&Token::From)
+                {
+                    self.advance();
+                } else {
+                    return Err("Expected 'to' or 'from'".to_string());
+                }
                 let tar = self.parse_expression()?;
                 (tar, val)
-            },
+            }
             ArithmeticOp::Multiply | ArithmeticOp::Divide => {
                 let tar = self.parse_expression()?;
                 self.consume(Token::By)?;
@@ -94,23 +165,104 @@ impl Parser {
                 (tar, val)
             }
         };
-        let destination = if self.current_token() == Some(&Token::As) { self.advance(); Some(self.parse_identifier_expression()?) } else { None };
-        Ok(Statement::Arithmetic { op, value, target, destination })
+        let destination = if self.current_token() == Some(&Token::As) {
+            self.advance();
+            Some(self.parse_identifier_expression()?)
+        } else {
+            None
+        };
+        Ok(Statement::Arithmetic {
+            op,
+            value,
+            target,
+            destination,
+        })
     }
-    
+
     // Other existing parsers
-    fn parse_use_statement(&mut self) -> Result<Statement, String> { self.advance(); let backend = match self.current_token() { Some(Token::Python) => Backend::Python, Some(Token::R) => Backend::R, _ => return Err("Expected 'python' or 'r' after 'use'".to_string()) }; self.advance(); Ok(Statement::Use(backend)) }
-    fn parse_summarize_statement(&mut self) -> Result<Statement, String> { self.advance(); let source = self.parse_expression()?; self.consume(Token::As)?; let destination = self.parse_identifier_expression()?; Ok(Statement::Summarize { source, destination }) }
-    fn parse_lemmatize_statement(&mut self) -> Result<Statement, String> { self.advance(); let source = self.parse_expression()?; self.consume(Token::As)?; let destination = self.parse_identifier_expression()?; Ok(Statement::Lemmatize { source, destination }) }
-    fn parse_filter_statement(&mut self) -> Result<Statement, String> { self.advance(); let source = self.parse_expression()?; let condition = match self.current_token() { Some(Token::Containing) => { self.advance(); FilterCondition::Containing(self.parse_expression()?) }, Some(Token::StartingWith) => { self.advance(); FilterCondition::StartingWith(self.parse_expression()?) }, Some(Token::EndingWith) => { self.advance(); FilterCondition::EndingWith(self.parse_expression()?) }, _ => return Err("Expected a filter condition".to_string()) }; self.consume(Token::As)?; let destination = self.parse_identifier_expression()?; Ok(Statement::Filter { source, condition, destination }) }
-    fn parse_save_statement(&mut self) -> Result<Statement, String> { self.advance(); let source = self.parse_expression()?; self.consume(Token::To)?; let destination = self.parse_expression()?; Ok(Statement::Save { source, destination }) }
-    fn parse_print_statement(&mut self) -> Result<Statement, String> { self.advance(); let expr = self.parse_expression()?; Ok(Statement::Print(expr)) }
+    fn parse_use_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let backend = match self.current_token() {
+            Some(Token::Python) => Backend::Python,
+            Some(Token::R) => Backend::R,
+            _ => return Err("Expected 'python' or 'r' after 'use'".to_string()),
+        };
+        self.advance();
+        Ok(Statement::Use(backend))
+    }
+    fn parse_summarize_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let source = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Summarize {
+            source,
+            destination,
+        })
+    }
+    fn parse_lemmatize_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let source = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Lemmatize {
+            source,
+            destination,
+        })
+    }
+    fn parse_filter_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let source = self.parse_expression()?;
+        let condition = match self.current_token() {
+            Some(Token::Containing) => {
+                self.advance();
+                FilterCondition::Containing(self.parse_expression()?)
+            }
+            Some(Token::StartingWith) => {
+                self.advance();
+                FilterCondition::StartingWith(self.parse_expression()?)
+            }
+            Some(Token::EndingWith) => {
+                self.advance();
+                FilterCondition::EndingWith(self.parse_expression()?)
+            }
+            _ => return Err("Expected a filter condition".to_string()),
+        };
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Filter {
+            source,
+            condition,
+            destination,
+        })
+    }
+    fn parse_save_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let source = self.parse_expression()?;
+        self.consume(Token::To)?;
+        let destination = self.parse_expression()?;
+        Ok(Statement::Save {
+            source,
+            destination,
+        })
+    }
+    fn parse_print_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let expr = self.parse_expression()?;
+        Ok(Statement::Print(expr))
+    }
 
     // Expression parsing logic
     fn parse_expression(&mut self) -> Result<Expression, String> {
         match self.current_token().cloned() {
-            Some(Token::String(v)) => { self.advance(); Ok(Expression::StringLiteral(v)) },
-            Some(Token::Number(v)) => { self.advance(); Ok(Expression::Number(v)) },
+            Some(Token::String(v)) => {
+                self.advance();
+                Ok(Expression::StringLiteral(v))
+            }
+            Some(Token::Number(v)) => {
+                self.advance();
+                Ok(Expression::Number(v))
+            }
             // For any other token, treat it as a potential identifier.
             Some(_) => self.parse_identifier_expression(),
             None => Err("Expected an expression, but found nothing.".to_string()),
@@ -129,7 +281,7 @@ impl Parser {
                 self.advance();
                 Ok(Expression::Identifier(identifier_string))
             }
-            None => Err("Expected a variable name, but found nothing.".to_string())
+            None => Err("Expected a variable name, but found nothing.".to_string()),
         }
     }
 
@@ -140,17 +292,54 @@ impl Parser {
                 let unit_token = tok.clone();
                 self.advance();
                 Ok(Expression::Unit(unit_token))
-            },
-            _ => Err(format!("Expected a unit (like words, ner, etc), but found {:?}", self.current_token())),
+            }
+            _ => Err(format!(
+                "Expected a unit (like words, ner, etc), but found {:?}",
+                self.current_token()
+            )),
         }
     }
-    
+
     fn is_unit_token(&self, token: &Token) -> bool {
-        matches!(token, Token::Words | Token::Sentences | Token::Lines | Token::Paragraphs | Token::Characters | Token::Tokens | Token::Types | Token::Uniques | Token::Length | Token::POS | Token::NER | Token::Entities)
+        matches!(
+            token,
+            Token::Words
+                | Token::Sentences
+                | Token::Lines
+                | Token::Paragraphs
+                | Token::Characters
+                | Token::Tokens
+                | Token::Types
+                | Token::Uniques
+                | Token::Length
+                | Token::POS
+                | Token::NER
+                | Token::Entities
+        )
     }
-    
-    fn current_token(&self) -> Option<&Token> { self.tokens.get(self.position) }
-    fn advance(&mut self) { if !self.is_at_end() { self.position += 1; } }
-    fn is_at_end(&self) -> bool { self.position >= self.tokens.len() || self.current_token() == Some(&Token::Eof) }
-    fn consume(&mut self, expected: Token) -> Result<(), String> { if let Some(t) = self.current_token() { if std::mem::discriminant(t) == std::mem::discriminant(&expected) { self.advance(); return Ok(()); } } Err(format!("Expected {:?}, found {:?}", expected, self.current_token())) }
+
+    fn current_token(&self) -> Option<&Token> {
+        self.tokens.get(self.position)
+    }
+    fn advance(&mut self) {
+        if !self.is_at_end() {
+            self.position += 1;
+        }
+    }
+    fn is_at_end(&self) -> bool {
+        self.position >= self.tokens.len() || self.current_token() == Some(&Token::Eof)
+    }
+    fn consume(&mut self, expected: Token) -> Result<(), String> {
+        if let Some(t) = self.current_token() {
+            if std::mem::discriminant(t) == std::mem::discriminant(&expected) {
+                self.advance();
+                return Ok(());
+            }
+        }
+        Err(format!(
+            "Expected {:?}, found {:?}",
+            expected,
+            self.current_token()
+        ))
+    }
 }
