@@ -1577,6 +1577,8 @@ dependencies = [
  "jni",
  "pyo3",
  "reqwest",
+ "serde",
+ "serde_json",
  "shellexpand",
  "tar",
  "zip",

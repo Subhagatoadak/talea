@@ -19,6 +19,9 @@ extendr-api = "0.8.0"
 extendr-engine = "0.8.0"
 jni = "0.21.0"
 shellexpand = "3.1.0"
+reqwest = { version = "0.12", features = ["blocking", "json"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 
 
 [build-dependencies]
