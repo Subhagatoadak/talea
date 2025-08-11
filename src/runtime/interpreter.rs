@@ -335,10 +335,13 @@ impl Interpreter {
                         let module = importlib.call_method1("module_from_spec", (spec.clone(),))?;
                         let loader = spec.getattr("loader")?;
                         loader.call_method1("exec_module", (module.clone(),))?;
-                        module.downcast_into::<PyModule>()
+                        module
+                            .downcast_into::<PyModule>()
+                            .map_err(|e| e.into())
+                            .map(|m| m.into())
                     } else {
                         let module = PyModule::import_bound(py, module_str.as_str())?;
-                        Ok(module.into_py(py))
+                        Ok(module.into())
                     }
                 })
                 .map_err(|e| format!("Python Error: {}", e))?;
@@ -388,7 +391,7 @@ impl Interpreter {
             Some(Library::Python(module)) => {
                 let result = Python::with_gil(|py| -> PyResult<TaleaValue> {
                     let m = module.bind(py);
-                    let f = m.getattr(&func_name)?;
+                    let f = m.getattr(func_name.as_str())?;
                     let py_args: Vec<PyObject> = arg_values
                         .iter()
                         .map(|v| Interpreter::talea_value_to_py(py, v))
