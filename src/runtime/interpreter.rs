@@ -328,15 +328,17 @@ impl Interpreter {
                 let py_module = Python::with_gil(|py| -> PyResult<Py<PyModule>> {
                     if module_str.ends_with(".py") {
                         let importlib = PyModule::import_bound(py, "importlib.util")?;
-                        let spec = importlib
-                            .call_method1("spec_from_file_location", (&alias_name, &module_str))?;
+                        let spec = importlib.call_method1(
+                            "spec_from_file_location",
+                            (alias_name.as_str(), module_str.as_str()),
+                        )?;
                         let module = importlib.call_method1("module_from_spec", (spec.clone(),))?;
                         let loader = spec.getattr("loader")?;
                         loader.call_method1("exec_module", (module.clone(),))?;
-                        Ok(module.downcast::<PyModule>()?.into())
+                        module.downcast_into::<PyModule>()
                     } else {
-                        let module = PyModule::import_bound(py, &module_str)?;
-                        Ok(module.into())
+                        let module = PyModule::import_bound(py, module_str.as_str())?;
+                        Ok(module.into_py(py))
                     }
                 })
                 .map_err(|e| format!("Python Error: {}", e))?;
@@ -385,14 +387,15 @@ impl Interpreter {
         match self.libraries.get(&lib_name) {
             Some(Library::Python(module)) => {
                 let result = Python::with_gil(|py| -> PyResult<TaleaValue> {
-                    let m = module.as_ref(py);
+                    let m = module.bind(py);
                     let f = m.getattr(&func_name)?;
                     let py_args: Vec<PyObject> = arg_values
                         .iter()
                         .map(|v| Interpreter::talea_value_to_py(py, v))
                         .collect();
-                    let res = f.call1(PyTuple::new(py, py_args))?;
-                    Ok(Interpreter::py_obj_to_talea(py, res))
+                    let args_tuple = PyTuple::new_bound(py, py_args);
+                    let res = f.call1(args_tuple)?;
+                    Ok(Interpreter::py_obj_to_talea(res))
                 })
                 .map_err(|e| format!("Python Error: {}", e))?;
                 self.environment.define(dest_name, result);
@@ -657,13 +660,13 @@ impl Interpreter {
                     .iter()
                     .map(|v| Interpreter::talea_value_to_py(py, v))
                     .collect();
-                PyList::new(py, items).into_py(py)
+                PyList::new_bound(py, items).into_py(py)
             }
             _ => py.None(),
         }
     }
 
-    fn py_obj_to_talea(py: Python, obj: &PyAny) -> TaleaValue {
+    fn py_obj_to_talea(obj: Bound<'_, PyAny>) -> TaleaValue {
         if let Ok(s) = obj.extract::<String>() {
             TaleaValue::String(s)
         } else if let Ok(n) = obj.extract::<i64>() {
@@ -673,7 +676,7 @@ impl Interpreter {
         } else if let Ok(list) = obj.downcast::<PyList>() {
             let vals = list
                 .iter()
-                .map(|item| Interpreter::py_obj_to_talea(py, item))
+                .map(|item| Interpreter::py_obj_to_talea(item))
                 .collect();
             TaleaValue::List(vals)
         } else {
@@ -697,9 +700,9 @@ impl Interpreter {
     }
 
     fn r_obj_to_talea(obj: r_prelude::Robj) -> TaleaValue {
-        if let Some(v) = obj.as_real_scalar() {
+        if let Some(v) = obj.as_real() {
             TaleaValue::Number(v as i64)
-        } else if let Some(v) = obj.as_integer_scalar() {
+        } else if let Some(v) = obj.as_integer() {
             TaleaValue::Number(v as i64)
         } else if let Some(s) = obj.as_str() {
             TaleaValue::String(s.to_string())
