@@ -21,7 +21,8 @@ fn main() {
                 if input.is_empty() {
                     continue;
                 }
-                rl.add_history_entry(line).ok();
+                // Add the trimmed input to the history without moving `line`
+                rl.add_history_entry(input).ok();
 
                 // 1. Lexing
                 let mut lexer = talea::lexer::Lexer::new(input);
