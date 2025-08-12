@@ -93,7 +93,9 @@ pub enum Statement {
     },
     OpenAI {
         prompt: Expression,
-        destination: Expression,
+        model: Option<Expression>,
+        destination: Option<Expression>,
+        file_path: Option<Expression>,
     },
     SetEnv {
         name: String,

@@ -167,7 +167,11 @@ Inside the Talea REPL you can even set environment variables with plain English:
 > set environment variable OPENAI_API_KEY to "sk-your-key"
 > openai "Write a haiku about rust" as poem
 > print poem
+> openai "Write a haiku about rust" with "gpt-4" to "haiku.txt"
 ```
+
+The last command asks the `gpt-4` model for a poem and saves the reply into
+`haiku.txt` in one step.
 
 -----
 
