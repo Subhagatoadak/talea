@@ -87,6 +87,7 @@ pub enum Token {
     Scala,
     Ruby,
     Julia,
+    Install,
     Import,
     Call,
     For,
@@ -298,6 +299,7 @@ impl<'a> Lexer<'a> {
             "use" => Token::Use,
             "python" => Token::Python,
             "r" => Token::R, // New
+            "install" => Token::Install,
             "import" => Token::Import,
             "call" => Token::Call,
             "for" => Token::For,

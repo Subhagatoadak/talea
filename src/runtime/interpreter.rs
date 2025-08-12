@@ -14,6 +14,7 @@ use crate::ast::{ArithmeticOp, Backend, Expression, FilterCondition, Statement};
 use crate::lexer::Token;
 use crate::openai_pipeline::OpenAiPipeline;
 use crate::runtime::{Environment, TaleaValue};
+use std::process::Command;
 
 pub struct Interpreter {
     environment: Environment,
@@ -102,6 +103,8 @@ impl Interpreter {
                 module,
                 alias,
             } => self.execute_import_statement(backend, module, alias),
+            Statement::Install { backend, module } =>
+                self.execute_install_statement(backend, module),
             Statement::Call {
                 library,
                 function,
@@ -431,6 +434,57 @@ impl Interpreter {
                 }
             }
             _ => Err("Unsupported backend for import".to_string()),
+        }
+    }
+
+    fn execute_install_statement(
+        &mut self,
+        backend: &Backend,
+        module: &Expression,
+    ) -> std::result::Result<(), String> {
+        let module_str_raw = self.get_string_value(module)?;
+        let module_str = shellexpand::tilde(&module_str_raw).to_string();
+        match backend {
+            Backend::Python => {
+                println!(
+                    "[Interpreter: Installing Python module '{}']",
+                    module_str
+                );
+                let status = Command::new("python")
+                    .arg("-m")
+                    .arg("pip")
+                    .arg("install")
+                    .arg(&module_str)
+                    .status()
+                    .map_err(|e| e.to_string())?;
+                if status.success() {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "Failed to install Python module '{}'",
+                        module_str
+                    ))
+                }
+            }
+            Backend::R => {
+                println!("[Interpreter: Installing R package '{}']", module_str);
+                let cmd = format!("install.packages(\"{}\")", module_str);
+                let status = Command::new("R")
+                    .arg("-q")
+                    .arg("-e")
+                    .arg(cmd)
+                    .status()
+                    .map_err(|e| e.to_string())?;
+                if status.success() {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "Failed to install R package '{}'",
+                        module_str
+                    ))
+                }
+            }
+            _ => Err("Unsupported backend for install".to_string()),
         }
     }
 
