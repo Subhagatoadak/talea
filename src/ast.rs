@@ -51,6 +51,15 @@ pub enum Statement {
         source: Expression,
         destination: Expression,
     },
+    Split {
+        unit: Expression,
+        source: Expression,
+        destination: Expression,
+    },
+    Normalize {
+        source: Expression,
+        destination: Expression,
+    },
     Count {
         unit: Expression,
         source: Expression,
@@ -100,5 +109,10 @@ pub enum Statement {
     SetEnv {
         name: String,
         value: Expression,
+    },
+    ForEach {
+        item: String,
+        list: Expression,
+        body: Vec<Statement>,
     },
 }

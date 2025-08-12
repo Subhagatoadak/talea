@@ -32,10 +32,13 @@ impl Parser {
             Some(Token::Save) => self.parse_save_statement(),
             Some(Token::Print) => self.parse_print_statement(),
             Some(Token::Tokenize) => self.parse_tokenize_statement(),
+            Some(Token::Split) => self.parse_split_statement(),
+            Some(Token::Normalize) => self.parse_normalize_statement(),
             Some(Token::Count) => self.parse_count_statement(),
             Some(Token::Tag) => self.parse_tag_statement(),
             Some(Token::Import) => self.parse_import_statement(),
             Some(Token::Call) => self.parse_call_statement(),
+            Some(Token::For) => self.parse_foreach_statement(),
             Some(Token::Identifier(s)) if s.eq_ignore_ascii_case("openai") => {
                 self.parse_openai_statement()
             }
@@ -68,6 +71,28 @@ impl Parser {
             source,
             destination,
         })
+    }
+
+    fn parse_split_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let unit = self.parse_unit_expression()?;
+        self.consume(Token::In)?;
+        let source = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Split {
+            unit,
+            source,
+            destination,
+        })
+    }
+
+    fn parse_normalize_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let source = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Normalize { source, destination })
     }
 
     fn parse_tag_statement(&mut self) -> Result<Statement, String> {
@@ -163,6 +188,26 @@ impl Parser {
             args,
             destination,
         })
+    }
+
+    fn parse_foreach_statement(&mut self) -> Result<Statement, String> {
+        self.advance(); // consume 'for'
+        self.consume(Token::Each)?;
+        let item_expr = self.parse_identifier_expression()?;
+        let item = if let Expression::Identifier(name) = item_expr {
+            name
+        } else {
+            return Err("Expected loop variable".to_string());
+        };
+        self.consume(Token::In)?;
+        let list = self.parse_expression()?;
+        self.consume(Token::Do)?;
+        let mut body = Vec::new();
+        while !matches!(self.current_token(), Some(Token::End)) {
+            body.push(self.parse_statement()?);
+        }
+        self.consume(Token::End)?;
+        Ok(Statement::ForEach { item, list, body })
     }
 
     fn parse_openai_statement(&mut self) -> Result<Statement, String> {
