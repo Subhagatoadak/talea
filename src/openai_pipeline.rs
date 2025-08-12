@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 /// ```no_run
 /// use talea::openai_pipeline::OpenAiPipeline;
 /// let pipeline = OpenAiPipeline::new("MY_KEY", "gpt-3.5-turbo");
-/// let text = pipeline.generate("Say hello").unwrap();
+/// let text = pipeline.ask("Say hello").unwrap();
 /// println!("{}", text);
 /// ```
 pub struct OpenAiPipeline {
@@ -68,6 +68,12 @@ impl OpenAiPipeline {
             .first()
             .and_then(|c| c.message.content.clone())
             .ok_or_else(|| "No content in response".to_string())
+    }
+
+    /// Ask the model a question in plain English. This is an alias for [`generate`]
+    /// but reads more naturally in code.
+    pub fn ask(&self, prompt: &str) -> Result<String, String> {
+        self.generate(prompt)
     }
 
     /// Convenience helper that reads the API key from the environment,

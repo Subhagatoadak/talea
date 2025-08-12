@@ -1,52 +1,52 @@
 // src/main.rs
 
-use std::io::{self, Write};
+use rustyline::error::ReadlineError;
+use rustyline::DefaultEditor;
 // Bring the new Interpreter into scope
 use talea::runtime::interpreter::Interpreter;
 
 fn main() {
     println!("talea REPL v0.1.0");
 
-    // Create the interpreter. It holds the state (like variables).
-    // It lives for the entire REPL session.
     let mut interpreter = Interpreter::new();
+    let mut rl = DefaultEditor::new().expect("failed to create editor");
 
     loop {
-        print!("> ");
-        io::stdout().flush().unwrap();
+        match rl.readline("> ") {
+            Ok(line) => {
+                let input = line.trim();
+                if input == "exit" {
+                    break;
+                }
+                if input.is_empty() {
+                    continue;
+                }
+                rl.add_history_entry(line).ok();
 
-        let mut input = String::new();
-        if io::stdin().read_line(&mut input).is_err() {
-            break;
-        }
+                // 1. Lexing
+                let mut lexer = talea::lexer::Lexer::new(input);
+                let tokens = lexer.all_tokens();
 
-        let input = input.trim();
-        if input == "exit" {
-            break;
-        }
-        
-        if input.is_empty() {
-            continue;
-        }
+                // 2. Parsing
+                let mut parser = talea::parser::Parser::new(tokens);
+                let ast = match parser.parse() {
+                    Ok(ast) => ast,
+                    Err(e) => {
+                        eprintln!("Parse Error: {}", e);
+                        continue;
+                    }
+                };
 
-        // 1. Lexing
-        let mut lexer = talea::lexer::Lexer::new(input);
-        let tokens = lexer.all_tokens();
-
-        // 2. Parsing
-        let mut parser = talea::parser::Parser::new(tokens);
-        let ast = match parser.parse() {
-            Ok(ast) => ast,
-            Err(e) => {
-                eprintln!("Parse Error: {}", e);
-                continue; // Skip to the next loop iteration
+                // 3. Interpreting
+                if let Err(e) = interpreter.execute(ast) {
+                    eprintln!("Runtime Error: {}", e);
+                }
             }
-        };
-
-        // 3. INTERPRETING!
-        // The interpreter executes the AST.
-        if let Err(e) = interpreter.execute(ast) {
-            eprintln!("Runtime Error: {}", e);
+            Err(ReadlineError::Interrupted) | Err(ReadlineError::Eof) => break,
+            Err(err) => {
+                eprintln!("Error: {:?}", err);
+                break;
+            }
         }
     }
 }

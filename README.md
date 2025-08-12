@@ -152,6 +152,25 @@ You can load external packages or scripts and call their functions directly:
 
 -----
 
+### Talking to OpenAI in plain English
+
+```rust
+use talea::openai_pipeline::OpenAiPipeline;
+let pipeline = OpenAiPipeline::from_env("gpt-3.5-turbo").unwrap();
+let reply = pipeline.ask("Write a short haiku about the sea.").unwrap();
+println!("{}", reply);
+```
+
+Inside the Talea REPL you can even set environment variables with plain English:
+
+```
+> set environment variable OPENAI_API_KEY to "sk-your-key"
+> openai "Write a haiku about rust" as poem
+> print poem
+```
+
+-----
+
 ### One-line OpenAI Pipeline
 
 If you have an OpenAI API key in the `OPENAI_API_KEY` environment variable,

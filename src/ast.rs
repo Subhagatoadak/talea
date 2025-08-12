@@ -91,4 +91,12 @@ pub enum Statement {
         args: Vec<Expression>,
         destination: Expression,
     },
+    OpenAI {
+        prompt: Expression,
+        destination: Expression,
+    },
+    SetEnv {
+        name: String,
+        value: Expression,
+    },
 }
