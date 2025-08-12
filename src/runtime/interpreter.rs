@@ -533,7 +533,9 @@ impl Interpreter {
             TaleaValue::Number(n) => n.to_string(),
             _ => return Err("Environment variables must be strings or numbers.".to_string()),
         };
-        std::env::set_var(name, &string_val);
+        unsafe {
+            std::env::set_var(name, &string_val);
+        }
         println!("[Interpreter: Set {}]", name);
         Ok(())
     }
