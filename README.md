@@ -152,6 +152,24 @@ You can load external packages or scripts and call their functions directly:
 
 -----
 
+### One-line OpenAI Pipeline
+
+If you have an OpenAI API key in the `OPENAI_API_KEY` environment variable,
+Talea can generate text and save it straight to a file with a single call:
+
+```rust
+use talea::openai_pipeline::OpenAiPipeline;
+
+OpenAiPipeline::quick(
+    "Explain the significance of the Renaissance.",
+    "renaissance.txt",
+).unwrap();
+```
+
+The model's reply will be written to `renaissance.txt`.
+
+-----
+
 ## ❤️ Contributing
 
 Contributions are welcome\! Talea is an ambitious project, and help is needed in all areas.
