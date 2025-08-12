@@ -150,6 +150,43 @@ You can load external packages or scripts and call their functions directly:
 5
 ```
 
+### Advanced NLP Use Cases (Python & R)
+
+Talea can orchestrate sophisticated natural language processing pipelines by calling out to the Python and R ecosystems. Below are a few illustrative scenarios:
+
+#### Python: Sentiment Analysis with TextBlob
+
+```talea
+> use python
+> import python "textblob" as tb
+> call tb TextBlob "Talea makes NLP easy" as blob
+> call blob sentiment as sentiment
+> print sentiment
+```
+
+#### Python: Topic Modeling with gensim
+
+```talea
+> use python
+> import python "gensim" as g
+> call g simple_preprocess my_article as tokens
+> call g corpora Dictionary tokens as dict
+> call g models LdaModel [tokens, dict, 5] as lda
+> print lda
+```
+
+#### R: Token Frequency with quanteda
+
+```talea
+> use r
+> import r "quanteda" as q
+> call q tokens my_article as r_tokens
+> call q dfm r_tokens as counts
+> print counts
+```
+
+These examples combine Talea's English-like syntax with powerful packages to perform advanced NLP without leaving the REPL.
+
 -----
 
 ### Talking to OpenAI in plain English
@@ -192,6 +229,34 @@ OpenAiPipeline::quick(
 The model's reply will be written to `renaissance.txt`.
 
 -----
+
+## 📚 Command Reference
+
+Talea understands a growing set of plain-English commands. The table below summarizes the currently supported ones:
+
+| Command | Purpose | Example |
+|--------|---------|---------|
+| `load` | Read a file into a variable | `load "file.txt" as my_text` |
+| `tokenize` | Split text into tokens | `tokenize my_text as tokens` |
+| `split` | Split text by unit (word, sentence) | `split sentences in my_text as lines` |
+| `normalize` | Normalize text (e.g., lowercase) | `normalize my_text as clean_text` |
+| `tag` | NLP tagging with spaCy (NER, POS) | `tag my_text with ner as entities` |
+| `count` | Count units in a list or text | `count words in my_text as word_count` |
+| `define` | Create variables | `define threshold as 10` |
+| `set environment variable` | Set OS environment variables | `set environment variable API_KEY to "123"` |
+| `use` | Choose backend language | `use python` |
+| `import` | Import a Python or R module | `import python "math" as m` |
+| `call` | Invoke a function from an imported module | `call m sqrt 16 as result` |
+| `for each` | Loop over lists | `for each item in items do ... end` |
+| `openai` | Query OpenAI models | `openai "Hello" as reply` |
+| `add/subtract/multiply/divide` | Arithmetic operations | `add 5 to count as new_count` |
+| `summarize` | Summarize text | `summarize my_text as summary` |
+| `lemmatize` | Lemmatize text via spaCy | `lemmatize my_text as lemmas` |
+| `filter` | Filter lists by condition | `filter tokens containing "rust" as rust_tokens` |
+| `save` | Write content to a file | `save results to "out.txt"` |
+| `print` | Display a value | `print summary` |
+
+Custom commands can be added in Rust by extending the parser and interpreter, enabling domain-specific workflows.
 
 ## ❤️ Contributing
 
