@@ -23,7 +23,7 @@ impl Parser {
     }
 
     fn parse_statement(&mut self) -> Result<Statement, String> {
-        match self.current_token().cloned() {
+        match self.current_token() {
             Some(Token::Use) => self.parse_use_statement(),
             Some(Token::Summarize) => self.parse_summarize_statement(),
             Some(Token::Lemmatize) => self.parse_lemmatize_statement(),
@@ -36,6 +36,9 @@ impl Parser {
             Some(Token::Tag) => self.parse_tag_statement(),
             Some(Token::Import) => self.parse_import_statement(),
             Some(Token::Call) => self.parse_call_statement(),
+            Some(Token::Identifier(s)) if s.eq_ignore_ascii_case("openai") => {
+                self.parse_openai_statement()
+            }
             Some(Token::Define) => self.parse_define_statement(),
             Some(Token::Add) => self.parse_arithmetic_statement(ArithmeticOp::Add),
             Some(Token::Subtract) => self.parse_arithmetic_statement(ArithmeticOp::Subtract),
@@ -98,6 +101,25 @@ impl Parser {
 
     fn parse_define_statement(&mut self) -> Result<Statement, String> {
         self.advance();
+        if let Some(Token::Identifier(ref s)) = self.current_token() {
+            if s.eq_ignore_ascii_case("env") || s.eq_ignore_ascii_case("environment") {
+                self.advance();
+                if let Some(Token::Identifier(ref s2)) = self.current_token() {
+                    if s2.eq_ignore_ascii_case("variable") {
+                        self.advance();
+                    }
+                }
+                let name_expr = self.parse_identifier_expression()?;
+                let var_name = if let Expression::Identifier(n) = name_expr {
+                    n
+                } else {
+                    return Err("Expected environment variable name".to_string());
+                };
+                self.consume(Token::To)?;
+                let value = self.parse_expression()?;
+                return Ok(Statement::SetEnv { name: var_name, value });
+            }
+        }
         let name = self.parse_identifier_expression()?;
         self.consume(Token::As)?;
         let value = self.parse_expression()?;
@@ -141,6 +163,14 @@ impl Parser {
             args,
             destination,
         })
+    }
+
+    fn parse_openai_statement(&mut self) -> Result<Statement, String> {
+        self.advance(); // consume 'openai'
+        let prompt = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::OpenAI { prompt, destination })
     }
 
     fn parse_arithmetic_statement(&mut self, op: ArithmeticOp) -> Result<Statement, String> {

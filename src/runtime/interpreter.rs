@@ -13,6 +13,7 @@ use extendr_api::prelude as r_prelude;
 use crate::ast::{ArithmeticOp, Backend, Expression, FilterCondition, Statement};
 use crate::lexer::Token;
 use crate::runtime::{Environment, TaleaValue};
+use crate::openai_pipeline::OpenAiPipeline;
 
 pub struct Interpreter {
     environment: Environment,
@@ -98,6 +99,10 @@ impl Interpreter {
                 args,
                 destination,
             } => self.execute_call_statement(library, function, args, destination),
+            Statement::OpenAI { prompt, destination } => {
+                self.execute_openai_statement(prompt, destination)
+            }
+            Statement::SetEnv { name, value } => self.execute_set_env_statement(name, value),
         }
     }
 
@@ -430,6 +435,20 @@ impl Interpreter {
         }
     }
 
+    fn execute_openai_statement(
+        &mut self,
+        prompt: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let prompt_str = self.get_string_value(prompt)?;
+        let dest_name = self.get_identifier_name(destination)?;
+        let pipeline = OpenAiPipeline::from_env("gpt-3.5-turbo")?;
+        let response = pipeline.ask(&prompt_str)?;
+        self.environment
+            .define(dest_name, TaleaValue::String(response));
+        Ok(())
+    }
+
     fn execute_save_statement(
         &mut self,
         source: &Expression,
@@ -500,6 +519,22 @@ impl Interpreter {
         let var_name = self.get_identifier_name(name)?;
         let value = self.evaluate_expression(value)?;
         self.environment.define(var_name, value);
+        Ok(())
+    }
+
+    fn execute_set_env_statement(
+        &mut self,
+        name: &str,
+        value: &Expression,
+    ) -> std::result::Result<(), String> {
+        let val = self.evaluate_expression(value)?;
+        let string_val = match val {
+            TaleaValue::String(s) => s,
+            TaleaValue::Number(n) => n.to_string(),
+            _ => return Err("Environment variables must be strings or numbers.".to_string()),
+        };
+        std::env::set_var(name, &string_val);
+        println!("[Interpreter: Set {}]", name);
         Ok(())
     }
     fn execute_load_statement(
