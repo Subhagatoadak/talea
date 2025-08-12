@@ -103,8 +103,9 @@ impl Interpreter {
                 module,
                 alias,
             } => self.execute_import_statement(backend, module, alias),
-            Statement::Install { backend, module } =>
-                self.execute_install_statement(backend, module),
+            Statement::Install { backend, module } => {
+                self.execute_install_statement(backend, module)
+            }
             Statement::Call {
                 library,
                 function,
@@ -142,45 +143,60 @@ impl Interpreter {
         source: &Expression,
         destination: &Expression,
     ) -> std::result::Result<(), String> {
-        if !self.active_backends.contains(&Backend::R) {
-            return Err(
-                "The 'summarize' command requires the R backend. Run 'use r' first.".to_string(),
-            );
-        }
-        let source_list = if let TaleaValue::List(l) = self.evaluate_expression(source)? {
-            l
-        } else {
-            return Err("Summarize can only be applied to a list of numbers.".to_string());
-        };
         let dest_name = self.get_identifier_name(destination)?;
-        let numbers_as_strings: Vec<String> = source_list
-            .iter()
-            .filter_map(|val| {
-                if let TaleaValue::Number(n) = val {
-                    Some(n.to_string())
-                } else {
-                    None
+        let value = self.evaluate_expression(source)?;
+        match value {
+            TaleaValue::List(source_list) => {
+                if !self.active_backends.contains(&Backend::R) {
+                    return Err(
+                        "The 'summarize' command requires the R backend. Run 'use r' first."
+                            .to_string(),
+                    );
                 }
-            })
-            .collect();
-        println!("[Interpreter: Calling R to summarize data...]");
+                let numbers_as_strings: Vec<String> = source_list
+                    .iter()
+                    .filter_map(|val| {
+                        if let TaleaValue::Number(n) = val {
+                            Some(n.to_string())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                println!("[Interpreter: Calling R to summarize data...]");
 
-        // FIX: Use the aliased prelude and handle the R result type correctly.
-        r_prelude::test! {
-            // 1. Construct the complete R command as a string.
-            let r_command = format!("capture.output(print(summary(c({}))))", numbers_as_strings.join(","));
+                // FIX: Use the aliased prelude and handle the R result type correctly.
+                r_prelude::test! {
+                    // 1. Construct the complete R command as a string.
+                    let r_command = format!("capture.output(print(summary(c({}))))", numbers_as_strings.join(","));
 
-            // 2. Evaluate the string command.
-            let summary_result = r_prelude::eval_string(&r_command).map_err(|e| e.to_string())?;
+                    // 2. Evaluate the string command.
+                    let summary_result = r_prelude::eval_string(&r_command).map_err(|e| e.to_string())?;
 
-            // 3. Extract the captured text lines and join them into a single string.
-            let summary_output = summary_result.as_str_vector()
-                .unwrap_or_default()
-                .join("\n");
+                    // 3. Extract the captured text lines and join them into a single string.
+                    let summary_output = summary_result.as_str_vector()
+                        .unwrap_or_default()
+                        .join("\n");
 
-            self.environment.define(dest_name, TaleaValue::String(summary_output));
+                    self.environment.define(dest_name, TaleaValue::String(summary_output));
+                }
+            }
+            TaleaValue::String(s) => {
+                let summary = s
+                    .split(|c| c == '.' || c == '!' || c == '?')
+                    .next()
+                    .unwrap_or("")
+                    .trim()
+                    .to_string();
+                self.environment
+                    .define(dest_name, TaleaValue::String(summary));
+            }
+            _ => {
+                return Err(
+                    "Summarize can only be applied to text or a list of numbers.".to_string(),
+                );
+            }
         }
-
         Ok(())
     }
 
@@ -446,10 +462,7 @@ impl Interpreter {
         let module_str = shellexpand::tilde(&module_str_raw).to_string();
         match backend {
             Backend::Python => {
-                println!(
-                    "[Interpreter: Installing Python module '{}']",
-                    module_str
-                );
+                println!("[Interpreter: Installing Python module '{}']", module_str);
                 let status = Command::new("python")
                     .arg("-m")
                     .arg("pip")
@@ -460,10 +473,7 @@ impl Interpreter {
                 if status.success() {
                     Ok(())
                 } else {
-                    Err(format!(
-                        "Failed to install Python module '{}'",
-                        module_str
-                    ))
+                    Err(format!("Failed to install Python module '{}'", module_str))
                 }
             }
             Backend::R => {
@@ -478,10 +488,7 @@ impl Interpreter {
                 if status.success() {
                     Ok(())
                 } else {
-                    Err(format!(
-                        "Failed to install R package '{}'",
-                        module_str
-                    ))
+                    Err(format!("Failed to install R package '{}'", module_str))
                 }
             }
             _ => Err("Unsupported backend for install".to_string()),
