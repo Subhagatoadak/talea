@@ -349,7 +349,7 @@ impl Interpreter {
                     "[Interpreter: Importing Python module '{}' as '{}']",
                     module_str, &alias_name
                 );
-                let py_module = Python::with_gil(|py| -> PyResult<Py<PyModule>> {
+                let import_result = Python::with_gil(|py| -> PyResult<Py<PyModule>> {
                     if module_str.ends_with(".py") {
                         let importlib = PyModule::import_bound(py, "importlib.util")?;
                         let spec = importlib.call_method1(
@@ -367,11 +367,25 @@ impl Interpreter {
                         let module = PyModule::import_bound(py, module_str.as_str())?;
                         Ok(module.into())
                     }
-                })
-                .map_err(|e| format!("Python Error: {}", e))?;
-                self.libraries
-                    .insert(alias_name, Library::Python(py_module));
-                Ok(())
+                });
+                match import_result {
+                    Ok(py_module) => {
+                        self.libraries
+                            .insert(alias_name.clone(), Library::Python(py_module));
+                        Ok(())
+                    }
+                    Err(e) => {
+                        let err_msg = e.to_string();
+                        if err_msg.contains("ModuleNotFoundError") {
+                            Err(format!(
+                                "Python module '{}' was not found. You can install it by running: pip install {}",
+                                module_str, module_str
+                            ))
+                        } else {
+                            Err(format!("Python Error: {}", err_msg))
+                        }
+                    }
+                }
             }
             Backend::R => {
                 if !self.active_backends.contains(&Backend::R) {
@@ -383,15 +397,36 @@ impl Interpreter {
                     "[Interpreter: Importing R module '{}' as '{}']",
                     module_str, &alias_name
                 );
-                r_prelude::test! {
+                let import_result: std::result::Result<(), String> = r_prelude::test! {
                     if module_str.ends_with(".R") || module_str.ends_with(".r") {
-                        r_prelude::eval_string(&format!("source('{}')", module_str)).map_err(|e| e.to_string())?;
+                        r_prelude::eval_string(&format!("source('{}')", module_str))
+                            .map(|_| ())
+                            .map_err(|e| e.to_string())
                     } else {
-                        r_prelude::eval_string(&format!("library({})", module_str)).map_err(|e| e.to_string())?;
+                        r_prelude::eval_string(&format!("library({})", module_str))
+                            .map(|_| ())
+                            .map_err(|e| e.to_string())
+                    }
+                };
+                match import_result {
+                    Ok(_) => {
+                        self.libraries
+                            .insert(alias_name.clone(), Library::R(module_str.clone()));
+                        Ok(())
+                    }
+                    Err(err_msg) => {
+                        if err_msg.contains("there is no package called")
+                            || err_msg.contains("package") && err_msg.contains("not found")
+                        {
+                            Err(format!(
+                                "R library '{}' was not found. You can install it by running: install.packages(\"{}\")",
+                                module_str, module_str
+                            ))
+                        } else {
+                            Err(err_msg)
+                        }
                     }
                 }
-                self.libraries.insert(alias_name, Library::R(module_str));
-                Ok(())
             }
             _ => Err("Unsupported backend for import".to_string()),
         }
