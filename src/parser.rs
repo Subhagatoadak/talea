@@ -101,10 +101,10 @@ impl Parser {
 
     fn parse_define_statement(&mut self) -> Result<Statement, String> {
         self.advance();
-        if let Some(Token::Identifier(ref s)) = self.current_token() {
+        if let Some(Token::Identifier(s)) = self.current_token() {
             if s.eq_ignore_ascii_case("env") || s.eq_ignore_ascii_case("environment") {
                 self.advance();
-                if let Some(Token::Identifier(ref s2)) = self.current_token() {
+                if let Some(Token::Identifier(s2)) = self.current_token() {
                     if s2.eq_ignore_ascii_case("variable") {
                         self.advance();
                     }
