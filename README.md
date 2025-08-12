@@ -258,6 +258,20 @@ Talea understands a growing set of plain-English commands. The table below summa
 
 Custom commands can be added in Rust by extending the parser and interpreter, enabling domain-specific workflows.
 
+## 🏗️ Building a macOS Release
+
+Talea ships with a helper script that bundles the compiled binary into a
+macOS `.app` and DMG disk image.
+
+```bash
+# Run on macOS with Node.js installed
+scripts/build_dmg.sh
+```
+
+The script writes `dist/Talea-<version>.dmg` containing the core
+application. If the `examples/` directory is present it is archived as
+`Talea-examples.tar.gz` for an optional download.
+
 ## ❤️ Contributing
 
 Contributions are welcome\! Talea is an ambitious project, and help is needed in all areas.
