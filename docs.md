@@ -48,6 +48,7 @@ The following commands are currently supported by the Talea interpreter. Each co
 | `set environment variable` | Set an OS environment variable | `set environment variable API_KEY to "123"` |
 | `use` | Choose the backend language | `use python` |
 | `import` | Import a module from the chosen backend | `import python "textblob" as tb` |
+| `install` | Install a Python module or R package | `install python "textblob"` |
 | `call` | Call a function from an imported module | `call tb TextBlob "Talea rocks" as blob` |
 | `for each` | Iterate over items in a list | `for each t in tokens do print t end` |
 | `openai` | Query an OpenAI model | `openai "Write a haiku" as poem` |
@@ -67,12 +68,18 @@ The following commands are currently supported by the Talea interpreter. Each co
 * Arithmetic commands (`add`, `subtract`, `multiply`, `divide`) operate on numbers but also work with text when appropriate (e.g., concatenation via `add`).
 * Loops (`for each`) may contain any nested command, including calls to external libraries or OpenAI.
 
-## Installing Missing Python or R Libraries
+## Installing Python or R Libraries
 
-Talea now offers friendly guidance when an import fails because a module isn't installed.
-If a Python module cannot be found, the interpreter suggests a simple command such as
-`pip install module_name`. Missing R libraries trigger a similar message recommending
-`install.packages("package_name")`.
+If a needed module isn't available, Talea can install it directly.
+Use the `install` command to fetch a Python module or R package, for example:
+
+```talea
+install python "textblob"
+install r "quanteda"
+```
+
+When an import fails, the interpreter still provides a helpful hint showing which
+`install` command to run.
 
 ## Common NLP Techniques in Talea
 

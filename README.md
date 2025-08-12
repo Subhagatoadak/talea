@@ -187,6 +187,17 @@ Talea can orchestrate sophisticated natural language processing pipelines by cal
 
 These examples combine Talea's English-like syntax with powerful packages to perform advanced NLP without leaving the REPL.
 
+### Installing Missing Libraries
+
+If a required package isn't present, Talea can install it for you:
+
+```talea
+> install python "textblob"
+> install r "quanteda"
+```
+
+After installation, you can `import` the module and use it immediately.
+
 -----
 
 ### Talking to OpenAI in plain English
@@ -246,6 +257,7 @@ Talea understands a growing set of plain-English commands. The table below summa
 | `set environment variable` | Set OS environment variables | `set environment variable API_KEY to "123"` |
 | `use` | Choose backend language | `use python` |
 | `import` | Import a Python or R module | `import python "math" as m` |
+| `install` | Install a Python module or R package | `install python "textblob"` |
 | `call` | Invoke a function from an imported module | `call m sqrt 16 as result` |
 | `for each` | Loop over lists | `for each item in items do ... end` |
 | `openai` | Query OpenAI models | `openai "Hello" as reply` |

@@ -37,6 +37,7 @@ impl Parser {
             Some(Token::Count) => self.parse_count_statement(),
             Some(Token::Tag) => self.parse_tag_statement(),
             Some(Token::Import) => self.parse_import_statement(),
+            Some(Token::Install) => self.parse_install_statement(),
             Some(Token::Call) => self.parse_call_statement(),
             Some(Token::For) => self.parse_foreach_statement(),
             Some(Token::Identifier(s)) if s.eq_ignore_ascii_case("openai") => {
@@ -167,6 +168,18 @@ impl Parser {
             module,
             alias,
         })
+    }
+
+    fn parse_install_statement(&mut self) -> Result<Statement, String> {
+        self.advance(); // consume 'install'
+        let backend = match self.current_token() {
+            Some(Token::Python) => Backend::Python,
+            Some(Token::R) => Backend::R,
+            _ => return Err("Expected 'python' or 'r' after 'install'".to_string()),
+        };
+        self.advance();
+        let module = self.parse_expression()?;
+        Ok(Statement::Install { backend, module })
     }
 
     fn parse_call_statement(&mut self) -> Result<Statement, String> {

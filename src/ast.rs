@@ -94,6 +94,10 @@ pub enum Statement {
         module: Expression,
         alias: Expression,
     },
+    Install {
+        backend: Backend,
+        module: Expression,
+    },
     Call {
         library: Expression,
         function: Expression,
