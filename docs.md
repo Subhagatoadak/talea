@@ -67,6 +67,13 @@ The following commands are currently supported by the Talea interpreter. Each co
 * Arithmetic commands (`add`, `subtract`, `multiply`, `divide`) operate on numbers but also work with text when appropriate (e.g., concatenation via `add`).
 * Loops (`for each`) may contain any nested command, including calls to external libraries or OpenAI.
 
+## Installing Missing Python or R Libraries
+
+Talea now offers friendly guidance when an import fails because a module isn't installed.
+If a Python module cannot be found, the interpreter suggests a simple command such as
+`pip install module_name`. Missing R libraries trigger a similar message recommending
+`install.packages("package_name")`.
+
 ## Common NLP Techniques in Talea
 
 Talea wraps common NLP techniques in plain English instructions. Below are representative examples.
