@@ -12,8 +12,8 @@ use extendr_api::prelude as r_prelude;
 // AST and Runtime Imports
 use crate::ast::{ArithmeticOp, Backend, Expression, FilterCondition, Statement};
 use crate::lexer::Token;
-use crate::runtime::{Environment, TaleaValue};
 use crate::openai_pipeline::OpenAiPipeline;
+use crate::runtime::{Environment, TaleaValue};
 
 pub struct Interpreter {
     environment: Environment,
@@ -79,9 +79,10 @@ impl Interpreter {
                 source,
                 destination,
             } => self.execute_split_statement(unit, source, destination),
-            Statement::Normalize { source, destination } => {
-                self.execute_normalize_statement(source, destination)
-            }
+            Statement::Normalize {
+                source,
+                destination,
+            } => self.execute_normalize_statement(source, destination),
             Statement::Count {
                 unit,
                 source,
@@ -397,8 +398,9 @@ impl Interpreter {
                     "[Interpreter: Importing R module '{}' as '{}']",
                     module_str, &alias_name
                 );
-                let import_result: std::result::Result<(), String> = r_prelude::test! {
-                    if module_str.ends_with(".R") || module_str.ends_with(".r") {
+                let mut import_result: std::result::Result<(), String> = Ok(());
+                r_prelude::test! {
+                    import_result = if module_str.ends_with(".R") || module_str.ends_with(".r") {
                         r_prelude::eval_string(&format!("source('{}')", module_str))
                             .map(|_| ())
                             .map_err(|e| e.to_string())
@@ -406,8 +408,8 @@ impl Interpreter {
                         r_prelude::eval_string(&format!("library({})", module_str))
                             .map(|_| ())
                             .map_err(|e| e.to_string())
-                    }
-                };
+                    };
+                }
                 match import_result {
                     Ok(_) => {
                         self.libraries
@@ -689,7 +691,8 @@ impl Interpreter {
                     "[Interpreter: Split text into {} sentences.]",
                     sentences.len()
                 );
-                self.environment.define(dest_name, TaleaValue::List(sentences));
+                self.environment
+                    .define(dest_name, TaleaValue::List(sentences));
                 Ok(())
             }
             _ => Err("Unsupported unit for split".to_string()),
