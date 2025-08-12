@@ -99,9 +99,17 @@ impl Interpreter {
                 args,
                 destination,
             } => self.execute_call_statement(library, function, args, destination),
-            Statement::OpenAI { prompt, destination } => {
-                self.execute_openai_statement(prompt, destination)
-            }
+            Statement::OpenAI {
+                prompt,
+                model,
+                destination,
+                file_path,
+            } => self.execute_openai_statement(
+                prompt,
+                model.as_ref(),
+                destination.as_ref(),
+                file_path.as_ref(),
+            ),
             Statement::SetEnv { name, value } => self.execute_set_env_statement(name, value),
         }
     }
@@ -438,14 +446,34 @@ impl Interpreter {
     fn execute_openai_statement(
         &mut self,
         prompt: &Expression,
-        destination: &Expression,
+        model: Option<&Expression>,
+        destination: Option<&Expression>,
+        file_path: Option<&Expression>,
     ) -> std::result::Result<(), String> {
         let prompt_str = self.get_string_value(prompt)?;
-        let dest_name = self.get_identifier_name(destination)?;
-        let pipeline = OpenAiPipeline::from_env("gpt-3.5-turbo")?;
+
+        let model_name = if let Some(model_expr) = model {
+            self.get_string_value(model_expr)?
+        } else {
+            "gpt-3.5-turbo".to_string()
+        };
+
+        let pipeline = OpenAiPipeline::from_env(model_name)?;
         let response = pipeline.ask(&prompt_str)?;
-        self.environment
-            .define(dest_name, TaleaValue::String(response));
+
+        if let Some(dest_expr) = destination {
+            let dest_name = self.get_identifier_name(dest_expr)?;
+            self.environment
+                .define(dest_name, TaleaValue::String(response.clone()));
+        }
+
+        if let Some(file_expr) = file_path {
+            let path = self.get_string_value(file_expr)?;
+            fs::write(&path, &response)
+                .map_err(|e| format!("Failed to write to file '{}': {}", path, e))?;
+            println!("[Interpreter: Successfully saved content to '{}']", path);
+        }
+
         Ok(())
     }
 

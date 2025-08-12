@@ -168,9 +168,42 @@ impl Parser {
     fn parse_openai_statement(&mut self) -> Result<Statement, String> {
         self.advance(); // consume 'openai'
         let prompt = self.parse_expression()?;
-        self.consume(Token::As)?;
-        let destination = self.parse_identifier_expression()?;
-        Ok(Statement::OpenAI { prompt, destination })
+
+        // Optional model specification
+        let model = if self.current_token() == Some(&Token::With) {
+            self.advance();
+            Some(self.parse_expression()?)
+        } else {
+            None
+        };
+
+        // Destination can be a variable (introduced by 'as') and/or a file path
+        let mut destination = None;
+        let mut file_path = None;
+        match self.current_token() {
+            Some(Token::As) => {
+                self.advance();
+                destination = Some(self.parse_identifier_expression()?);
+                if self.current_token() == Some(&Token::To) {
+                    self.advance();
+                    file_path = Some(self.parse_expression()?);
+                }
+            }
+            Some(Token::To) => {
+                self.advance();
+                file_path = Some(self.parse_expression()?);
+            }
+            _ => {
+                return Err("Expected 'as' or 'to' after OpenAI prompt".to_string());
+            }
+        }
+
+        Ok(Statement::OpenAI {
+            prompt,
+            model,
+            destination,
+            file_path,
+        })
     }
 
     fn parse_arithmetic_statement(&mut self, op: ArithmeticOp) -> Result<Statement, String> {
