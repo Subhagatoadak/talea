@@ -69,6 +69,25 @@ impl OpenAiPipeline {
             .and_then(|c| c.message.content.clone())
             .ok_or_else(|| "No content in response".to_string())
     }
+
+    /// Convenience helper that reads the API key from the environment,
+    /// uses `gpt-3.5-turbo`, sends the prompt, and writes the response to
+    /// a file. This allows running the pipeline in a single line.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use talea::openai_pipeline::OpenAiPipeline;
+    /// OpenAiPipeline::quick(
+    ///     "Explain the significance of the Renaissance.",
+    ///     "renaissance.txt",
+    /// ).unwrap();
+    /// ```
+    pub fn quick(prompt: &str, output_path: impl AsRef<std::path::Path>) -> Result<(), String> {
+        let pipeline = Self::from_env("gpt-3.5-turbo")?;
+        let text = pipeline.generate(prompt)?;
+        std::fs::write(output_path, text).map_err(|e| e.to_string())
+    }
 }
 
 #[derive(Serialize)]
