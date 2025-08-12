@@ -170,9 +170,12 @@ Talea can orchestrate sophisticated natural language processing pipelines by cal
 > use python
 > import python "gensim" as g
 > call g simple_preprocess my_article as tokens
-> call g corpora Dictionary tokens as dict
-> call g models LdaModel [tokens, dict, 5] as lda
-> print lda
+# Nested module calls such as `g.corpora.Dictionary` or `g.models.LdaModel`
+# are not yet supported in Talea.
+# The following commands are planned for a future release:
+# call g corpora Dictionary tokens as dict
+# call g models LdaModel [tokens, dict, 5] as lda
+> print tokens
 ```
 
 #### R: Token Frequency with quanteda
