@@ -89,6 +89,10 @@ pub enum Token {
     Julia,
     Import,
     Call,
+    For,
+    Each,
+    Do,
+    End,
 
     // === Nouns (Units, Targets, Concepts) ===
     Words,
@@ -296,6 +300,10 @@ impl<'a> Lexer<'a> {
             "r" => Token::R, // New
             "import" => Token::Import,
             "call" => Token::Call,
+            "for" => Token::For,
+            "each" => Token::Each,
+            "do" => Token::Do,
+            "end" => Token::End,
 
             _ => Token::Identifier(text.to_string()),
         }

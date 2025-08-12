@@ -74,6 +74,14 @@ impl Interpreter {
                 source,
                 destination,
             } => self.execute_tokenize_statement(source, destination),
+            Statement::Split {
+                unit,
+                source,
+                destination,
+            } => self.execute_split_statement(unit, source, destination),
+            Statement::Normalize { source, destination } => {
+                self.execute_normalize_statement(source, destination)
+            }
             Statement::Count {
                 unit,
                 source,
@@ -111,6 +119,9 @@ impl Interpreter {
                 file_path.as_ref(),
             ),
             Statement::SetEnv { name, value } => self.execute_set_env_statement(name, value),
+            Statement::ForEach { item, list, body } => {
+                self.execute_foreach_statement(item, list, body)
+            }
         }
     }
 
@@ -617,6 +628,52 @@ impl Interpreter {
             Err("The 'tokenize' command can only be used on a String value.".to_string())
         }
     }
+
+    fn execute_split_statement(
+        &mut self,
+        unit: &Expression,
+        source: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let unit_token = if let Expression::Unit(t) = unit {
+            t
+        } else {
+            return Err("Invalid unit for split".to_string());
+        };
+        let text = self.get_string_value(source)?;
+        let dest_name = self.get_identifier_name(destination)?;
+        match unit_token {
+            Token::Sentences => {
+                let sentences: Vec<TaleaValue> = text
+                    .split(|c| c == '.' || c == '!' || c == '?')
+                    .map(|s| s.trim())
+                    .filter(|s| !s.is_empty())
+                    .map(|s| TaleaValue::String(s.to_string()))
+                    .collect();
+                println!(
+                    "[Interpreter: Split text into {} sentences.]",
+                    sentences.len()
+                );
+                self.environment.define(dest_name, TaleaValue::List(sentences));
+                Ok(())
+            }
+            _ => Err("Unsupported unit for split".to_string()),
+        }
+    }
+
+    fn execute_normalize_statement(
+        &mut self,
+        source: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let text = self.get_string_value(source)?;
+        let dest_name = self.get_identifier_name(destination)?;
+        let normalized = text.to_lowercase();
+        println!("[Interpreter: Normalized text.]");
+        self.environment
+            .define(dest_name, TaleaValue::String(normalized));
+        Ok(())
+    }
     fn execute_count_statement(
         &mut self,
         unit: &Expression,
@@ -716,6 +773,26 @@ impl Interpreter {
             Ok(s)
         } else {
             Err("Expected a string value".to_string())
+        }
+    }
+
+    fn execute_foreach_statement(
+        &mut self,
+        item: &String,
+        list: &Expression,
+        body: &Vec<Statement>,
+    ) -> std::result::Result<(), String> {
+        let list_val = self.evaluate_expression(list)?;
+        if let TaleaValue::List(items) = list_val {
+            for val in items {
+                self.environment.define(item.clone(), val);
+                for stmt in body {
+                    self.execute_statement(stmt)?;
+                }
+            }
+            Ok(())
+        } else {
+            Err("for each requires a list".to_string())
         }
     }
 
