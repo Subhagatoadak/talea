@@ -130,9 +130,12 @@ use python
 import python "gensim" as g
 load "article.txt" as article
 tokenize article as tokens
-call g corpora Dictionary tokens as dict
-call g models LdaModel [tokens, dict, 5] as lda
-print lda
+# Nested module calls like `g.corpora.Dictionary` or `g.models.LdaModel`
+# are not yet supported in Talea.
+# The following commands are planned for a future release:
+# call g corpora Dictionary tokens as dict
+# call g models LdaModel [tokens, dict, 5] as lda
+print tokens
 ```
 
 ### Sentiment Analysis (via `textblob`)
