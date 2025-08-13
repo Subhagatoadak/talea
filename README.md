@@ -285,7 +285,7 @@ Talea understands a growing set of plain-English commands. The table below summa
 | `import` | Import a Python or R module | `import python "math" as m` |
 | `install` | Install a Python module or R package | `install python "textblob"` |
 | `call` | Invoke a function from an imported module | `call m sqrt 16 as result` |
-| `for each` | Loop over lists | `for each item in items do ... end` |
+| `for each` | Loop over lists in a single line | `for each item in items do print item end` |
 | `openai` | Query OpenAI models | `openai "Hello" as reply` |
 | `add/subtract/multiply/divide` | Arithmetic operations | `add 5 to count as new_count` |
 | `save` | Write content to a file | `save results to "out.txt"` |
