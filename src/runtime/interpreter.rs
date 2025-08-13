@@ -440,7 +440,7 @@ impl Interpreter {
                             || err_msg.contains("package") && err_msg.contains("not found")
                         {
                             Err(format!(
-                                "R library '{}' was not found. You can install it by running: install.packages(\"{}\")",
+                                "R library '{}' was not found. You can install it by running: install.packages(\"{}\", repos = \"https://cloud.r-project.org\")",
                                 module_str, module_str
                             ))
                         } else {
@@ -478,7 +478,10 @@ impl Interpreter {
             }
             Backend::R => {
                 println!("[Interpreter: Installing R package '{}']", module_str);
-                let cmd = format!("install.packages(\"{}\")", module_str);
+                let cmd = format!(
+                    "install.packages(\"{}\", repos = \"https://cloud.r-project.org\")",
+                    module_str
+                );
                 let status = Command::new("R")
                     .arg("-q")
                     .arg("-e")
