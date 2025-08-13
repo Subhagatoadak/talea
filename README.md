@@ -160,7 +160,7 @@ Talea can orchestrate sophisticated natural language processing pipelines by cal
 > use python
 > import python "textblob" as tb
 > call tb TextBlob "Talea makes NLP easy" as blob
-> call blob sentiment as sentiment
+> call tb sentiment blob as sentiment
 > print sentiment
 ```
 
@@ -173,8 +173,9 @@ Talea now supports nested module calls, enabling workflows such as
 > use python
 > import python "gensim" as g
 > call g simple_preprocess my_article as tokens
-> call g corpora.Dictionary tokens as dict
-> call g models.LdaModel [tokens, dict, 5] as lda
+> call g corpora.Dictionary [tokens] as dict
+> call dict doc2bow tokens as bow
+> call g models.LdaModel [[bow], dict, 5] as lda
 > print lda
 ```
 
