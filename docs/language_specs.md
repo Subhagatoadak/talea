@@ -60,7 +60,7 @@ set environment variable OPENAI_API_KEY to "sk-..."
 * **Arithmetic** – `add`, `subtract`, `multiply`, and `divide`
 
 ```talea
-if word_count > 1000 then print "long article" else print "short article" end
+if word_count is greater than 1000 then print "long article" else print "short article" end
 
 for each t in tokens do
     print t

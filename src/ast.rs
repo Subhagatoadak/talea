@@ -10,6 +10,7 @@ pub enum Expression {
     Unit(Token),
     ListLiteral(Vec<Expression>),
     Index(Box<Expression>, Box<Expression>),
+    Comparison(Box<Expression>, ComparisonOp, Box<Expression>),
 }
 #[derive(Debug, PartialEq)]
 pub enum ArithmeticOp {
@@ -17,6 +18,13 @@ pub enum ArithmeticOp {
     Subtract,
     Multiply,
     Divide,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum ComparisonOp {
+    Equals,
+    GreaterThan,
+    LessThan,
 }
 #[derive(Debug, PartialEq)]
 pub enum FilterCondition {

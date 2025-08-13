@@ -97,6 +97,11 @@ pub enum Token {
     If,
     Then,
     Else,
+    Is,
+    Greater,
+    Less,
+    Than,
+    Equals,
 
     // === Nouns (Units, Targets, Concepts) ===
     Words,
@@ -330,6 +335,11 @@ impl<'a> Lexer<'a> {
             "if" => Token::If,
             "then" => Token::Then,
             "else" => Token::Else,
+            "is" => Token::Is,
+            "greater" => Token::Greater,
+            "less" => Token::Less,
+            "than" => Token::Than,
+            "equals" | "equal" => Token::Equals,
 
             _ => Token::Identifier(text.to_string()),
         }

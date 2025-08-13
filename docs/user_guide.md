@@ -67,7 +67,7 @@ for each s in sentences do
     print s
 end
 
-if word_count > 1000 then print "long article" else print "short article" end
+if word_count is greater than 1000 then print "long article" else print "short article" end
 ```
 
 ## 7. External Libraries and OpenAI
