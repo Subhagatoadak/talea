@@ -27,7 +27,7 @@
 | `multiply` | Multiply two values | `multiply count by 2 as double` |
 | `divide` | Divide one value by another | `divide count by 2 as half` |
 | `for each` | Iterate over items in a list | `for each t in tokens do print t end` |
-| `if` | Conditional execution | `if count > 10 then print "big" else print "small" end` |
+| `if` | Conditional execution | `if count is greater than 10 then print "big" else print "small" end` |
 | `use` | Choose the backend language | `use python` |
 | `install` | Install a Python module or R package | `install python "textblob"` |
 | `import` | Import a module from the chosen backend | `import python "textblob" as tb` |

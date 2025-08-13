@@ -1,6 +1,6 @@
 // src/parser.rs
 
-use crate::ast::{ArithmeticOp, Backend, Expression, FilterCondition, Statement};
+use crate::ast::{ArithmeticOp, Backend, ComparisonOp, Expression, FilterCondition, Statement};
 use crate::lexer::Token;
 
 pub struct Parser {
@@ -142,7 +142,10 @@ impl Parser {
         let source = self.parse_expression()?;
         self.consume(Token::As)?;
         let destination = self.parse_identifier_expression()?;
-        Ok(Statement::Clean { source, destination })
+        Ok(Statement::Clean {
+            source,
+            destination,
+        })
     }
 
     fn parse_lowercase_statement(&mut self) -> Result<Statement, String> {
@@ -150,7 +153,10 @@ impl Parser {
         let source = self.parse_expression()?;
         self.consume(Token::As)?;
         let destination = self.parse_identifier_expression()?;
-        Ok(Statement::Lowercase { source, destination })
+        Ok(Statement::Lowercase {
+            source,
+            destination,
+        })
     }
 
     fn parse_uppercase_statement(&mut self) -> Result<Statement, String> {
@@ -158,7 +164,10 @@ impl Parser {
         let source = self.parse_expression()?;
         self.consume(Token::As)?;
         let destination = self.parse_identifier_expression()?;
-        Ok(Statement::Uppercase { source, destination })
+        Ok(Statement::Uppercase {
+            source,
+            destination,
+        })
     }
 
     fn parse_stem_statement(&mut self) -> Result<Statement, String> {
@@ -166,7 +175,10 @@ impl Parser {
         let source = self.parse_expression()?;
         self.consume(Token::As)?;
         let destination = self.parse_identifier_expression()?;
-        Ok(Statement::Stem { source, destination })
+        Ok(Statement::Stem {
+            source,
+            destination,
+        })
     }
 
     fn parse_normalize_statement(&mut self) -> Result<Statement, String> {
@@ -512,6 +524,38 @@ impl Parser {
             self.consume(Token::RBracket)?;
             expr = Expression::Index(Box::new(expr), Box::new(index_expr));
         }
+        expr = self.parse_comparison(expr)?;
+        Ok(expr)
+    }
+
+    fn parse_comparison(&mut self, left: Expression) -> Result<Expression, String> {
+        let mut expr = left;
+        if self.current_token() == Some(&Token::Is) {
+            self.advance();
+        }
+        let op = if self.current_token() == Some(&Token::Greater)
+            && self.peek_token() == Some(&Token::Than)
+        {
+            self.advance();
+            self.advance();
+            Some(ComparisonOp::GreaterThan)
+        } else if self.current_token() == Some(&Token::Less)
+            && self.peek_token() == Some(&Token::Than)
+        {
+            self.advance();
+            self.advance();
+            Some(ComparisonOp::LessThan)
+        } else if self.current_token() == Some(&Token::Equals) {
+            self.advance();
+            Some(ComparisonOp::Equals)
+        } else {
+            None
+        };
+
+        if let Some(op) = op {
+            let right = self.parse_expression()?;
+            expr = Expression::Comparison(Box::new(expr), op, Box::new(right));
+        }
         Ok(expr)
     }
 
@@ -600,6 +644,9 @@ impl Parser {
     fn current_token(&self) -> Option<&Token> {
         self.tokens.get(self.position)
     }
+    fn peek_token(&self) -> Option<&Token> {
+        self.tokens.get(self.position + 1)
+    }
     fn advance(&mut self) {
         if !self.is_at_end() {
             self.position += 1;
@@ -660,6 +707,10 @@ mod tests {
         let tokens = lexer.all_tokens();
         let mut parser = Parser::new(tokens);
         let err = parser.parse().unwrap_err();
-        assert!(err.contains("Did you mean `load \"file.txt\" as article`?"), "{}", err);
+        assert!(
+            err.contains("Did you mean `load \"file.txt\" as article`?"),
+            "{}",
+            err
+        );
     }
 }

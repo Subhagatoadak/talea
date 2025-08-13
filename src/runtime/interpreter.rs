@@ -11,7 +11,7 @@ use extendr_api::prelude as r_prelude;
 // FIX: We are no longer using the jni crate directly in this simplified version.
 
 // AST and Runtime Imports
-use crate::ast::{ArithmeticOp, Backend, Expression, FilterCondition, Statement};
+use crate::ast::{ArithmeticOp, Backend, ComparisonOp, Expression, FilterCondition, Statement};
 use crate::lexer::Token;
 use crate::openai_pipeline::OpenAiPipeline;
 use crate::runtime::{Environment, TaleaValue};
@@ -1099,11 +1099,7 @@ impl Interpreter {
         match (unit_token, source_val) {
             // CASE 1: Count items in a list (e.g., "count words in word_list")
             (
-                Token::Words
-                | Token::Tokens
-                | Token::Lines
-                | Token::Sentences
-                | Token::Paragraphs,
+                Token::Words | Token::Tokens | Token::Lines | Token::Sentences | Token::Paragraphs,
                 TaleaValue::List(l),
             ) => {
                 let count = l.len() as i64;
@@ -1141,10 +1137,7 @@ impl Interpreter {
                     .define(dest_name, TaleaValue::Number(count));
             }
             (Token::Paragraphs, TaleaValue::String(s)) => {
-                let count = s
-                    .split("\n\n")
-                    .filter(|p| !p.trim().is_empty())
-                    .count() as i64;
+                let count = s.split("\n\n").filter(|p| !p.trim().is_empty()).count() as i64;
                 println!("[Interpreter: Counted {} paragraphs]", count);
                 self.environment
                     .define(dest_name, TaleaValue::Number(count));
@@ -1239,6 +1232,27 @@ impl Interpreter {
                     }
                     _ => Err("Indexing requires a list and a numeric index".to_string()),
                 }
+            }
+            Expression::Comparison(left, op, right) => {
+                let l = self.evaluate_expression(left)?;
+                let r = self.evaluate_expression(right)?;
+                let result = match (l, r) {
+                    (TaleaValue::Number(a), TaleaValue::Number(b)) => match op {
+                        ComparisonOp::Equals => a == b,
+                        ComparisonOp::GreaterThan => a > b,
+                        ComparisonOp::LessThan => a < b,
+                    },
+                    (TaleaValue::String(a), TaleaValue::String(b)) => match op {
+                        ComparisonOp::Equals => a == b,
+                        _ => {
+                            return Err(
+                                "Only equality comparison supported for strings".to_string()
+                            );
+                        }
+                    },
+                    _ => return Err("Comparison requires two numbers or two strings".to_string()),
+                };
+                Ok(TaleaValue::Number(if result { 1 } else { 0 }))
             }
         }
     }
