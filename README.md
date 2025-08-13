@@ -166,17 +166,16 @@ Talea can orchestrate sophisticated natural language processing pipelines by cal
 
 #### Python: Topic Modeling with gensim
 
-Nested module calls (for example `g.corpora.Dictionary` or `g.models.LdaModel`)
-are not yet supported in Talea and will be added in a future release.
+Talea now supports nested module calls, enabling workflows such as
+`g.corpora.Dictionary` or `g.models.LdaModel`.
 
 ```talea
 > use python
 > import python "gensim" as g
 > call g simple_preprocess my_article as tokens
-# The following commands are planned for a future release:
-# call g corpora Dictionary tokens as dict
-# call g models LdaModel [tokens, dict, 5] as lda
-> print tokens
+> call g corpora.Dictionary tokens as dict
+> call g models.LdaModel [tokens, dict, 5] as lda
+> print lda
 ```
 
 #### R: Token Frequency with quanteda

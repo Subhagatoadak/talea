@@ -513,13 +513,18 @@ impl Interpreter {
             Some(Library::Python(module)) => {
                 let result = Python::with_gil(|py| -> PyResult<TaleaValue> {
                     let m = module.bind(py);
-                    let f = m.getattr(func_name.as_str())?;
+                    // Support nested function paths like "corpora.Dictionary" by
+                    // traversing each attribute before calling the final one.
+                    let mut current: pyo3::Bound<'_, PyAny> = m.as_any();
+                    for attr_name in func_name.split('.') {
+                        current = current.getattr(attr_name)?;
+                    }
                     let py_args: Vec<PyObject> = arg_values
                         .iter()
                         .map(|v| Interpreter::talea_value_to_py(py, v))
                         .collect();
                     let args_tuple = PyTuple::new_bound(py, py_args);
-                    let res = f.call1(args_tuple)?;
+                    let res = current.call1(args_tuple)?;
                     Ok(Interpreter::py_obj_to_talea(res))
                 })
                 .map_err(|e| format!("Python Error: {}", e))?;
