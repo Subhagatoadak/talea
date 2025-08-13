@@ -33,7 +33,13 @@ impl Parser {
             Some(Token::Print) => self.parse_print_statement(),
             Some(Token::Tokenize) => self.parse_tokenize_statement(),
             Some(Token::Split) => self.parse_split_statement(),
+            Some(Token::Join) => self.parse_join_statement(),
+            Some(Token::Replace) => self.parse_replace_statement(),
+            Some(Token::Clean) => self.parse_clean_statement(),
             Some(Token::Normalize) => self.parse_normalize_statement(),
+            Some(Token::Lowercase) => self.parse_lowercase_statement(),
+            Some(Token::Uppercase) => self.parse_uppercase_statement(),
+            Some(Token::Stem) => self.parse_stem_statement(),
             Some(Token::Count) => self.parse_count_statement(),
             Some(Token::Concordance) | Some(Token::KWIC) => self.parse_concordance_statement(),
             Some(Token::Tag) => self.parse_tag_statement(),
@@ -42,6 +48,10 @@ impl Parser {
             Some(Token::Call) => self.parse_call_statement(),
             Some(Token::If) => self.parse_if_statement(),
             Some(Token::For) => self.parse_foreach_statement(),
+            Some(Token::Help) => {
+                self.advance();
+                Ok(Statement::Help)
+            }
             Some(Token::Identifier(s)) if s.eq_ignore_ascii_case("openai") => {
                 self.parse_openai_statement()
             }
@@ -51,7 +61,10 @@ impl Parser {
             Some(Token::Multiply) => self.parse_arithmetic_statement(ArithmeticOp::Multiply),
             Some(Token::Divide) => self.parse_arithmetic_statement(ArithmeticOp::Divide),
             Some(Token::Exit) | Some(Token::Quit) => std::process::exit(0),
-            Some(t) => Err(format!("Unrecognized or unimplemented command: {:?}", t)),
+            Some(t) => Err(format!(
+                "Unrecognized or unimplemented command: {}",
+                token_to_string(t)
+            )),
             None => Err("Unexpected end of input".to_string()),
         }
     }
@@ -88,6 +101,72 @@ impl Parser {
             source,
             destination,
         })
+    }
+
+    fn parse_join_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let unit = self.parse_unit_expression()?;
+        self.consume(Token::In)?;
+        let source = self.parse_expression()?;
+        self.consume(Token::With)?;
+        let separator = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Join {
+            unit,
+            source,
+            separator,
+            destination,
+        })
+    }
+
+    fn parse_replace_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let pattern = self.parse_expression()?;
+        self.consume(Token::With)?;
+        let replacement = self.parse_expression()?;
+        self.consume(Token::In)?;
+        let source = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Replace {
+            pattern,
+            replacement,
+            source,
+            destination,
+        })
+    }
+
+    fn parse_clean_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let source = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Clean { source, destination })
+    }
+
+    fn parse_lowercase_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let source = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Lowercase { source, destination })
+    }
+
+    fn parse_uppercase_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let source = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Uppercase { source, destination })
+    }
+
+    fn parse_stem_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let source = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Stem { source, destination })
     }
 
     fn parse_normalize_statement(&mut self) -> Result<Statement, String> {
@@ -536,10 +615,51 @@ impl Parser {
                 return Ok(());
             }
         }
-        Err(format!(
-            "Expected {:?}, found {:?}",
-            expected,
-            self.current_token()
-        ))
+        Err(format_user_error(&expected, self.current_token()))
+    }
+}
+
+fn token_to_string(token: &Token) -> String {
+    match token {
+        Token::Identifier(s) => format!("identifier '{}'", s),
+        Token::String(s) => format!("string literal \"{}\"", s),
+        Token::Number(n) => format!("number {}", n),
+        Token::As => "\"as\"".to_string(),
+        Token::In => "\"in\"".to_string(),
+        Token::To => "\"to\"".to_string(),
+        Token::With => "\"with\"".to_string(),
+        Token::LBracket => "'['".to_string(),
+        Token::RBracket => "']'".to_string(),
+        Token::Comma => "','".to_string(),
+        Token::Eof => "end of input".to_string(),
+        other => format!("{other:?}").to_lowercase(),
+    }
+}
+
+fn format_user_error(expected: &Token, found: Option<&Token>) -> String {
+    let expected_str = token_to_string(expected);
+    let found_str = match found {
+        Some(t) => token_to_string(t),
+        None => "end of input".to_string(),
+    };
+    let mut message = format!("Expected {}, but found {}.", expected_str, found_str);
+    if matches!(expected, Token::As) {
+        message.push_str(" Did you mean `load \"file.txt\" as article`?");
+    }
+    message
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::lexer::Lexer;
+
+    #[test]
+    fn missing_as_suggests_correction() {
+        let mut lexer = Lexer::new("load \"file.txt\" article");
+        let tokens = lexer.all_tokens();
+        let mut parser = Parser::new(tokens);
+        let err = parser.parse().unwrap_err();
+        assert!(err.contains("Did you mean `load \"file.txt\" as article`?"), "{}", err);
     }
 }

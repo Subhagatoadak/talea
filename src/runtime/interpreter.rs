@@ -41,7 +41,9 @@ impl Interpreter {
     pub fn execute(&mut self, statements: Vec<Statement>) -> std::result::Result<(), String> {
         // FIX: Iterate by reference to fix the mismatched types error.
         for statement in &statements {
-            self.execute_statement(statement)?;
+            if let Err(e) = self.execute_statement(statement) {
+                return Err(format_runtime_error(e));
+            }
         }
         Ok(())
     }
@@ -49,6 +51,7 @@ impl Interpreter {
     fn execute_statement(&mut self, statement: &Statement) -> std::result::Result<(), String> {
         match statement {
             Statement::Use(backend) => self.execute_use_statement(backend),
+            Statement::Help => self.execute_help_statement(),
             Statement::Summarize {
                 source,
                 destination,
@@ -80,6 +83,34 @@ impl Interpreter {
                 source,
                 destination,
             } => self.execute_split_statement(unit, source, destination),
+            Statement::Join {
+                unit,
+                source,
+                separator,
+                destination,
+            } => self.execute_join_statement(unit, source, separator, destination),
+            Statement::Replace {
+                pattern,
+                replacement,
+                source,
+                destination,
+            } => self.execute_replace_statement(pattern, replacement, source, destination),
+            Statement::Clean {
+                source,
+                destination,
+            } => self.execute_clean_statement(source, destination),
+            Statement::Lowercase {
+                source,
+                destination,
+            } => self.execute_lowercase_statement(source, destination),
+            Statement::Uppercase {
+                source,
+                destination,
+            } => self.execute_uppercase_statement(source, destination),
+            Statement::Stem {
+                source,
+                destination,
+            } => self.execute_stem_statement(source, destination),
             Statement::Normalize {
                 source,
                 destination,
@@ -145,6 +176,22 @@ impl Interpreter {
         println!("[Interpreter: {:?} backend enabled.]", backend);
         // The R engine is now initialized automatically by the `test!` macro when it's needed.
         // We no longer need any special code here.
+        Ok(())
+    }
+
+    fn execute_help_statement(&mut self) -> std::result::Result<(), String> {
+        const DOCS: &str = include_str!("../../docs.md");
+        const START: &str = "| Command |";
+        const END: &str = "### Additional Notes";
+
+        if let Some(start_idx) = DOCS.find(START) {
+            let rest = &DOCS[start_idx..];
+            let end_idx = rest.find(END).unwrap_or(rest.len());
+            let table = &rest[..end_idx];
+            println!("{}", table.trim());
+        } else {
+            println!("Help documentation not found.");
+        }
         Ok(())
     }
 
@@ -806,6 +853,196 @@ impl Interpreter {
         }
     }
 
+    fn execute_join_statement(
+        &mut self,
+        _unit: &Expression,
+        source: &Expression,
+        separator: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let list_val = self.evaluate_expression(source)?;
+        let sep = self.get_string_value(separator)?;
+        let dest_name = self.get_identifier_name(destination)?;
+        if let TaleaValue::List(items) = list_val {
+            let strings: Vec<String> = items
+                .into_iter()
+                .filter_map(|v| match v {
+                    TaleaValue::String(s) => Some(s),
+                    TaleaValue::Number(n) => Some(n.to_string()),
+                    _ => None,
+                })
+                .collect();
+            let joined = strings.join(&sep);
+            println!("[Interpreter: Joined list with separator '{}']", sep);
+            self.environment
+                .define(dest_name, TaleaValue::String(joined));
+            Ok(())
+        } else {
+            Err("The 'join' command requires a list.".to_string())
+        }
+    }
+
+    fn execute_replace_statement(
+        &mut self,
+        pattern: &Expression,
+        replacement: &Expression,
+        source: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let pat = self.get_string_value(pattern)?;
+        let repl = self.get_string_value(replacement)?;
+        let src_val = self.evaluate_expression(source)?;
+        let dest_name = self.get_identifier_name(destination)?;
+        match src_val {
+            TaleaValue::String(s) => {
+                let result = s.replace(&pat, &repl);
+                self.environment
+                    .define(dest_name, TaleaValue::String(result));
+                Ok(())
+            }
+            TaleaValue::List(list) => {
+                let replaced: Vec<TaleaValue> = list
+                    .into_iter()
+                    .map(|item| match item {
+                        TaleaValue::String(s) => {
+                            TaleaValue::String(s.replace(&pat, &repl))
+                        }
+                        _ => item,
+                    })
+                    .collect();
+                self.environment
+                    .define(dest_name, TaleaValue::List(replaced));
+                Ok(())
+            }
+            _ => Err("The 'replace' command requires a string or list.".to_string()),
+        }
+    }
+
+    fn execute_clean_statement(
+        &mut self,
+        source: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let src_val = self.evaluate_expression(source)?;
+        let dest_name = self.get_identifier_name(destination)?;
+        match src_val {
+            TaleaValue::String(s) => {
+                let cleaned = Self::clean_text(&s);
+                self.environment
+                    .define(dest_name, TaleaValue::String(cleaned));
+                Ok(())
+            }
+            TaleaValue::List(list) => {
+                let cleaned: Vec<TaleaValue> = list
+                    .into_iter()
+                    .map(|item| match item {
+                        TaleaValue::String(s) => {
+                            TaleaValue::String(Self::clean_text(&s))
+                        }
+                        _ => item,
+                    })
+                    .collect();
+                self.environment
+                    .define(dest_name, TaleaValue::List(cleaned));
+                Ok(())
+            }
+            _ => Err("The 'clean' command requires a string or list.".to_string()),
+        }
+    }
+
+    fn execute_lowercase_statement(
+        &mut self,
+        source: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let src_val = self.evaluate_expression(source)?;
+        let dest_name = self.get_identifier_name(destination)?;
+        match src_val {
+            TaleaValue::String(s) => {
+                self.environment
+                    .define(dest_name, TaleaValue::String(s.to_lowercase()));
+                Ok(())
+            }
+            TaleaValue::List(list) => {
+                let lower: Vec<TaleaValue> = list
+                    .into_iter()
+                    .map(|item| match item {
+                        TaleaValue::String(s) => TaleaValue::String(s.to_lowercase()),
+                        _ => item,
+                    })
+                    .collect();
+                self.environment
+                    .define(dest_name, TaleaValue::List(lower));
+                Ok(())
+            }
+            _ => Err("The 'lowercase' command requires a string or list.".to_string()),
+        }
+    }
+
+    fn execute_uppercase_statement(
+        &mut self,
+        source: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let src_val = self.evaluate_expression(source)?;
+        let dest_name = self.get_identifier_name(destination)?;
+        match src_val {
+            TaleaValue::String(s) => {
+                self.environment
+                    .define(dest_name, TaleaValue::String(s.to_uppercase()));
+                Ok(())
+            }
+            TaleaValue::List(list) => {
+                let upper: Vec<TaleaValue> = list
+                    .into_iter()
+                    .map(|item| match item {
+                        TaleaValue::String(s) => TaleaValue::String(s.to_uppercase()),
+                        _ => item,
+                    })
+                    .collect();
+                self.environment
+                    .define(dest_name, TaleaValue::List(upper));
+                Ok(())
+            }
+            _ => Err("The 'uppercase' command requires a string or list.".to_string()),
+        }
+    }
+
+    fn execute_stem_statement(
+        &mut self,
+        source: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let src_val = self.evaluate_expression(source)?;
+        let dest_name = self.get_identifier_name(destination)?;
+        match src_val {
+            TaleaValue::String(s) => {
+                let stems: Vec<TaleaValue> = s
+                    .split_whitespace()
+                    .map(|w| TaleaValue::String(Self::stem_word(w)))
+                    .collect();
+                self.environment
+                    .define(dest_name, TaleaValue::List(stems));
+                Ok(())
+            }
+            TaleaValue::List(list) => {
+                let stems: Vec<TaleaValue> = list
+                    .into_iter()
+                    .map(|item| match item {
+                        TaleaValue::String(s) => {
+                            TaleaValue::String(Self::stem_word(&s))
+                        }
+                        _ => item,
+                    })
+                    .collect();
+                self.environment
+                    .define(dest_name, TaleaValue::List(stems));
+                Ok(())
+            }
+            _ => Err("The 'stem' command requires a string or list.".to_string()),
+        }
+    }
+
     fn execute_normalize_statement(
         &mut self,
         source: &Expression,
@@ -963,6 +1200,7 @@ impl Interpreter {
         }
     }
 
+
     fn execute_if_statement(
         &mut self,
         condition: &Expression,
@@ -983,6 +1221,24 @@ impl Interpreter {
             self.execute_statement(stmt)?;
         }
         Ok(())
+
+    fn clean_text(input: &str) -> String {
+        let filtered: String = input
+            .chars()
+            .filter(|c| c.is_alphanumeric() || c.is_whitespace())
+            .collect();
+        filtered.split_whitespace().collect::<Vec<_>>().join(" ")
+    }
+
+    fn stem_word(word: &str) -> String {
+        let lower = word.to_lowercase();
+        for suffix in ["ing", "ed", "ly", "s"] {
+            if lower.ends_with(suffix) && lower.len() > suffix.len() {
+                return lower[..lower.len() - suffix.len()].to_string();
+            }
+        }
+        lower
+
     }
 
     fn execute_foreach_statement(
@@ -1103,6 +1359,25 @@ impl ToString for TaleaValue {
         }
     }
 }
+
+fn format_runtime_error(msg: String) -> String {
+    if let Some(name) = msg
+        .strip_prefix("Variable '")
+        .and_then(|s| s.strip_suffix("' not found."))
+    {
+        format!(
+            "Variable '{}' is undefined. Did you forget to define or load it?",
+            name
+        )
+    } else if msg == "Python backend not enabled. Run 'use python' first." {
+        "Python backend not enabled. Did you run `use python`?".to_string()
+    } else if msg == "R backend not enabled. Run 'use r' first." {
+        "R backend not enabled. Did you run `use r`?".to_string()
+    } else {
+        msg
+    }
+}
+
 trait ToStringForList {
     fn to_string_for_list(&self) -> String;
 }
@@ -1112,5 +1387,19 @@ impl ToStringForList for TaleaValue {
             TaleaValue::String(s) => format!("'{}'", s),
             _ => self.to_string(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ast::{Expression, Statement};
+
+    #[test]
+    fn undefined_variable_suggests_fix() {
+        let mut interpreter = Interpreter::new();
+        let stmts = vec![Statement::Print(Expression::Identifier("x".into()))];
+        let err = interpreter.execute(stmts).unwrap_err();
+        assert!(err.contains("Did you forget to define or load"), "{}", err);
     }
 }
