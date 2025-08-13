@@ -60,7 +60,10 @@ impl Parser {
             Some(Token::Multiply) => self.parse_arithmetic_statement(ArithmeticOp::Multiply),
             Some(Token::Divide) => self.parse_arithmetic_statement(ArithmeticOp::Divide),
             Some(Token::Exit) | Some(Token::Quit) => std::process::exit(0),
-            Some(t) => Err(format!("Unrecognized or unimplemented command: {:?}", t)),
+            Some(t) => Err(format!(
+                "Unrecognized or unimplemented command: {}",
+                token_to_string(t)
+            )),
             None => Err("Unexpected end of input".to_string()),
         }
     }
@@ -582,10 +585,51 @@ impl Parser {
                 return Ok(());
             }
         }
-        Err(format!(
-            "Expected {:?}, found {:?}",
-            expected,
-            self.current_token()
-        ))
+        Err(format_user_error(&expected, self.current_token()))
+    }
+}
+
+fn token_to_string(token: &Token) -> String {
+    match token {
+        Token::Identifier(s) => format!("identifier '{}'", s),
+        Token::String(s) => format!("string literal \"{}\"", s),
+        Token::Number(n) => format!("number {}", n),
+        Token::As => "\"as\"".to_string(),
+        Token::In => "\"in\"".to_string(),
+        Token::To => "\"to\"".to_string(),
+        Token::With => "\"with\"".to_string(),
+        Token::LBracket => "'['".to_string(),
+        Token::RBracket => "']'".to_string(),
+        Token::Comma => "','".to_string(),
+        Token::Eof => "end of input".to_string(),
+        other => format!("{other:?}").to_lowercase(),
+    }
+}
+
+fn format_user_error(expected: &Token, found: Option<&Token>) -> String {
+    let expected_str = token_to_string(expected);
+    let found_str = match found {
+        Some(t) => token_to_string(t),
+        None => "end of input".to_string(),
+    };
+    let mut message = format!("Expected {}, but found {}.", expected_str, found_str);
+    if matches!(expected, Token::As) {
+        message.push_str(" Did you mean `load \"file.txt\" as article`?");
+    }
+    message
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::lexer::Lexer;
+
+    #[test]
+    fn missing_as_suggests_correction() {
+        let mut lexer = Lexer::new("load \"file.txt\" article");
+        let tokens = lexer.all_tokens();
+        let mut parser = Parser::new(tokens);
+        let err = parser.parse().unwrap_err();
+        assert!(err.contains("Did you mean `load \"file.txt\" as article`?"), "{}", err);
     }
 }

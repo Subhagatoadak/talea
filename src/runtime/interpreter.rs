@@ -41,7 +41,9 @@ impl Interpreter {
     pub fn execute(&mut self, statements: Vec<Statement>) -> std::result::Result<(), String> {
         // FIX: Iterate by reference to fix the mismatched types error.
         for statement in &statements {
-            self.execute_statement(statement)?;
+            if let Err(e) = self.execute_statement(statement) {
+                return Err(format_runtime_error(e));
+            }
         }
         Ok(())
     }
@@ -1329,6 +1331,25 @@ impl ToString for TaleaValue {
         }
     }
 }
+
+fn format_runtime_error(msg: String) -> String {
+    if let Some(name) = msg
+        .strip_prefix("Variable '")
+        .and_then(|s| s.strip_suffix("' not found."))
+    {
+        format!(
+            "Variable '{}' is undefined. Did you forget to define or load it?",
+            name
+        )
+    } else if msg == "Python backend not enabled. Run 'use python' first." {
+        "Python backend not enabled. Did you run `use python`?".to_string()
+    } else if msg == "R backend not enabled. Run 'use r' first." {
+        "R backend not enabled. Did you run `use r`?".to_string()
+    } else {
+        msg
+    }
+}
+
 trait ToStringForList {
     fn to_string_for_list(&self) -> String;
 }
@@ -1338,5 +1359,19 @@ impl ToStringForList for TaleaValue {
             TaleaValue::String(s) => format!("'{}'", s),
             _ => self.to_string(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ast::{Expression, Statement};
+
+    #[test]
+    fn undefined_variable_suggests_fix() {
+        let mut interpreter = Interpreter::new();
+        let stmts = vec![Statement::Print(Expression::Identifier("x".into()))];
+        let err = interpreter.execute(stmts).unwrap_err();
+        assert!(err.contains("Did you forget to define or load"), "{}", err);
     }
 }
