@@ -129,6 +129,11 @@ impl Interpreter {
                 file_path.as_ref(),
             ),
             Statement::SetEnv { name, value } => self.execute_set_env_statement(name, value),
+            Statement::If {
+                condition,
+                then_body,
+                else_body,
+            } => self.execute_if_statement(condition, then_body, else_body),
             Statement::ForEach { item, list, body } => {
                 self.execute_foreach_statement(item, list, body)
             }
@@ -956,6 +961,28 @@ impl Interpreter {
         } else {
             Err("Expected a string value".to_string())
         }
+    }
+
+    fn execute_if_statement(
+        &mut self,
+        condition: &Expression,
+        then_body: &Vec<Statement>,
+        else_body: &Vec<Statement>,
+    ) -> std::result::Result<(), String> {
+        let cond_val = self.evaluate_expression(condition)?;
+        let truthy = match cond_val {
+            TaleaValue::Number(n) => n != 0,
+            TaleaValue::String(ref s) => !s.is_empty(),
+            TaleaValue::List(ref l) => !l.is_empty(),
+            TaleaValue::Tuple(ref t) => !t.is_empty(),
+            TaleaValue::Unit(_) => true,
+            TaleaValue::Null => false,
+        };
+        let body = if truthy { then_body } else { else_body };
+        for stmt in body {
+            self.execute_statement(stmt)?;
+        }
+        Ok(())
     }
 
     fn execute_foreach_statement(

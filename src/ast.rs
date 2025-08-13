@@ -121,6 +121,11 @@ pub enum Statement {
         name: String,
         value: Expression,
     },
+    If {
+        condition: Expression,
+        then_body: Vec<Statement>,
+        else_body: Vec<Statement>,
+    },
     ForEach {
         item: String,
         list: Expression,

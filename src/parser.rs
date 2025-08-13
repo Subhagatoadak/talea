@@ -40,6 +40,7 @@ impl Parser {
             Some(Token::Import) => self.parse_import_statement(),
             Some(Token::Install) => self.parse_install_statement(),
             Some(Token::Call) => self.parse_call_statement(),
+            Some(Token::If) => self.parse_if_statement(),
             Some(Token::For) => self.parse_foreach_statement(),
             Some(Token::Identifier(s)) if s.eq_ignore_ascii_case("openai") => {
                 self.parse_openai_statement()
@@ -221,6 +222,35 @@ impl Parser {
             function,
             args,
             destination,
+        })
+    }
+
+    fn parse_if_statement(&mut self) -> Result<Statement, String> {
+        self.advance(); // consume 'if'
+        let condition = self.parse_expression()?;
+        self.consume(Token::Then)?;
+        let mut then_body = Vec::new();
+        while let Some(tok) = self.current_token() {
+            if matches!(tok, Token::Else | Token::End) {
+                break;
+            }
+            then_body.push(self.parse_statement()?);
+        }
+        let mut else_body = Vec::new();
+        if self.current_token() == Some(&Token::Else) {
+            self.advance(); // consume 'else'
+            while let Some(tok) = self.current_token() {
+                if matches!(tok, Token::End) {
+                    break;
+                }
+                else_body.push(self.parse_statement()?);
+            }
+        }
+        self.consume(Token::End)?;
+        Ok(Statement::If {
+            condition,
+            then_body,
+            else_body,
         })
     }
 
