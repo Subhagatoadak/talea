@@ -6,6 +6,7 @@ use std::fs;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyTuple};
 // FIX: Import the prelude with an alias to avoid name collisions.
+#[cfg(feature = "r")]
 use extendr_api::prelude as r_prelude;
 // FIX: We are no longer using the jni crate directly in this simplified version.
 
@@ -22,6 +23,7 @@ pub struct Interpreter {
     libraries: HashMap<String, Library>,
 }
 
+#[allow(dead_code)]
 enum Library {
     Python(Py<PyModule>),
     R(String),
@@ -210,7 +212,7 @@ impl Interpreter {
                             .to_string(),
                     );
                 }
-                let numbers_as_strings: Vec<String> = source_list
+                let _numbers_as_strings: Vec<String> = source_list
                     .iter()
                     .filter_map(|val| {
                         if let TaleaValue::Number(n) = val {
@@ -222,20 +224,28 @@ impl Interpreter {
                     .collect();
                 println!("[Interpreter: Calling R to summarize data...]");
 
-                // FIX: Use the aliased prelude and handle the R result type correctly.
-                r_prelude::test! {
-                    // 1. Construct the complete R command as a string.
-                    let r_command = format!("capture.output(print(summary(c({}))))", numbers_as_strings.join(","));
+                #[cfg(feature = "r")]
+                {
+                    // FIX: Use the aliased prelude and handle the R result type correctly.
+                    r_prelude::test! {
+                        // 1. Construct the complete R command as a string.
+                        let r_command = format!("capture.output(print(summary(c({}))))", _numbers_as_strings.join(","));
 
-                    // 2. Evaluate the string command.
-                    let summary_result = r_prelude::eval_string(&r_command).map_err(|e| e.to_string())?;
+                        // 2. Evaluate the string command.
+                        let summary_result = r_prelude::eval_string(&r_command).map_err(|e| e.to_string())?;
 
-                    // 3. Extract the captured text lines and join them into a single string.
-                    let summary_output = summary_result.as_str_vector()
-                        .unwrap_or_default()
-                        .join("\n");
+                        // 3. Extract the captured text lines and join them into a single string.
+                        let summary_output = summary_result.as_str_vector()
+                            .unwrap_or_default()
+                            .join("\n");
 
-                    self.environment.define(dest_name, TaleaValue::String(summary_output));
+                        self.environment.define(dest_name, TaleaValue::String(summary_output));
+                    }
+                }
+
+                #[cfg(not(feature = "r"))]
+                {
+                    return Err("R backend not enabled. Rebuild with `--features r`".to_string());
                 }
             }
             TaleaValue::String(s) => {
@@ -474,36 +484,45 @@ impl Interpreter {
                     "[Interpreter: Importing R module '{}' as '{}']",
                     module_str, &alias_name
                 );
-                let mut import_result: std::result::Result<(), String> = Ok(());
-                r_prelude::test! {
-                    import_result = if module_str.ends_with(".R") || module_str.ends_with(".r") {
-                        r_prelude::eval_string(&format!("source('{}')", module_str))
-                            .map(|_| ())
-                            .map_err(|e| e.to_string())
-                    } else {
-                        r_prelude::eval_string(&format!("library({})", module_str))
-                            .map(|_| ())
-                            .map_err(|e| e.to_string())
-                    };
-                }
-                match import_result {
-                    Ok(_) => {
-                        self.libraries
-                            .insert(alias_name.clone(), Library::R(module_str.clone()));
-                        Ok(())
-                    }
-                    Err(err_msg) => {
-                        if err_msg.contains("there is no package called")
-                            || err_msg.contains("package") && err_msg.contains("not found")
-                        {
-                            Err(format!(
-                                "R library '{}' was not found. You can install it by running: install.packages(\"{}\", repos = \"https://cloud.r-project.org\")",
-                                module_str, module_str
-                            ))
+
+                #[cfg(feature = "r")]
+                {
+                    let mut import_result: std::result::Result<(), String> = Ok(());
+                    r_prelude::test! {
+                        import_result = if module_str.ends_with(".R") || module_str.ends_with(".r") {
+                            r_prelude::eval_string(&format!("source('{}')", module_str))
+                                .map(|_| ())
+                                .map_err(|e| e.to_string())
                         } else {
-                            Err(err_msg)
+                            r_prelude::eval_string(&format!("library({})", module_str))
+                                .map(|_| ())
+                                .map_err(|e| e.to_string())
+                        };
+                    }
+                    match import_result {
+                        Ok(_) => {
+                            self.libraries
+                                .insert(alias_name.clone(), Library::R(module_str.clone()));
+                            Ok(())
+                        }
+                        Err(err_msg) => {
+                            if err_msg.contains("there is no package called")
+                                || err_msg.contains("package") && err_msg.contains("not found")
+                            {
+                                Err(format!(
+                                    "R library '{}' was not found. You can install it by running: install.packages(\"{}\", repos = \"https://cloud.r-project.org\")",
+                                    module_str, module_str
+                                ))
+                            } else {
+                                Err(err_msg)
+                            }
                         }
                     }
+                }
+
+                #[cfg(not(feature = "r"))]
+                {
+                    Err("R backend not enabled. Rebuild with `--features r`".to_string())
                 }
             }
             _ => Err("Unsupported backend for import".to_string()),
@@ -534,21 +553,29 @@ impl Interpreter {
                 }
             }
             Backend::R => {
-                println!("[Interpreter: Installing R package '{}']", module_str);
-                let cmd = format!(
-                    "install.packages(\"{}\", repos = \"https://cloud.r-project.org\")",
-                    module_str
-                );
-                let status = Command::new("R")
-                    .arg("-q")
-                    .arg("-e")
-                    .arg(cmd)
-                    .status()
-                    .map_err(|e| e.to_string())?;
-                if status.success() {
-                    Ok(())
-                } else {
-                    Err(format!("Failed to install R package '{}'", module_str))
+                #[cfg(feature = "r")]
+                {
+                    println!("[Interpreter: Installing R package '{}']", module_str);
+                    let cmd = format!(
+                        "install.packages(\"{}\", repos = \"https://cloud.r-project.org\")",
+                        module_str
+                    );
+                    let status = Command::new("R")
+                        .arg("-q")
+                        .arg("-e")
+                        .arg(cmd)
+                        .status()
+                        .map_err(|e| e.to_string())?;
+                    if status.success() {
+                        Ok(())
+                    } else {
+                        Err(format!("Failed to install R package '{}'", module_str))
+                    }
+                }
+
+                #[cfg(not(feature = "r"))]
+                {
+                    Err("R backend not enabled. Rebuild with `--features r`".to_string())
                 }
             }
             _ => Err("Unsupported backend for install".to_string()),
@@ -603,13 +630,22 @@ impl Interpreter {
                     format!("{}::{}({})", module_name, func_name, arg_strings.join(","))
                 };
                 println!("[Interpreter: Calling R: {}]", call_string);
-                let dest = dest_name.clone();
-                r_prelude::test! {
-                    let res = r_prelude::eval_string(&call_string).map_err(|e| e.to_string())?;
-                    let value = Interpreter::r_obj_to_talea(res);
-                    self.environment.define(dest, value);
+                let _dest = dest_name.clone();
+
+                #[cfg(feature = "r")]
+                {
+                    r_prelude::test! {
+                        let res = r_prelude::eval_string(&call_string).map_err(|e| e.to_string())?;
+                        let value = Interpreter::r_obj_to_talea(res);
+                        self.environment.define(_dest, value);
+                    }
+                    Ok(())
                 }
-                Ok(())
+
+                #[cfg(not(feature = "r"))]
+                {
+                    Err("R backend not enabled. Rebuild with `--features r`".to_string())
+                }
             }
             None => Err(format!(
                 "Library '{}' not found. Did you import it?",
@@ -1329,6 +1365,7 @@ impl Interpreter {
         }
     }
 
+    #[cfg(feature = "r")]
     fn r_obj_to_talea(obj: r_prelude::Robj) -> TaleaValue {
         if let Some(v) = obj.as_real() {
             TaleaValue::Number(v as i64)
