@@ -1062,7 +1062,14 @@ impl Interpreter {
 
         match (unit_token, source_val) {
             // CASE 1: Count items in a list (e.g., "count words in word_list")
-            (Token::Words | Token::Tokens, TaleaValue::List(l)) => {
+            (
+                Token::Words
+                | Token::Tokens
+                | Token::Lines
+                | Token::Sentences
+                | Token::Paragraphs,
+                TaleaValue::List(l),
+            ) => {
                 let count = l.len() as i64;
                 println!("[Interpreter: Counted {} items]", count);
                 self.environment
@@ -1075,7 +1082,7 @@ impl Interpreter {
                 self.environment
                     .define(dest_name, TaleaValue::Number(count));
             }
-            // CASE 3: Get character/line count from a single string
+            // CASE 3: Get character/line/sentence/paragraph count from a single string
             (Token::Characters, TaleaValue::String(s)) => {
                 let count = s.len() as i64;
                 println!("[Interpreter: Counted {} characters]", count);
@@ -1088,7 +1095,24 @@ impl Interpreter {
                 self.environment
                     .define(dest_name, TaleaValue::Number(count));
             }
-
+            (Token::Sentences, TaleaValue::String(s)) => {
+                let count = s
+                    .split(|c| c == '.' || c == '!' || c == '?')
+                    .filter(|s| !s.trim().is_empty())
+                    .count() as i64;
+                println!("[Interpreter: Counted {} sentences]", count);
+                self.environment
+                    .define(dest_name, TaleaValue::Number(count));
+            }
+            (Token::Paragraphs, TaleaValue::String(s)) => {
+                let count = s
+                    .split("\n\n")
+                    .filter(|p| !p.trim().is_empty())
+                    .count() as i64;
+                println!("[Interpreter: Counted {} paragraphs]", count);
+                self.environment
+                    .define(dest_name, TaleaValue::Number(count));
+            }
             // CASE 4: Get character count for *each item* in a list
             (Token::Characters, TaleaValue::List(l)) => {
                 let lengths: Vec<TaleaValue> = l
@@ -1415,6 +1439,44 @@ mod tests {
         ];
         interpreter.execute(stmts).unwrap();
         let result = interpreter.environment.get("word_count").unwrap();
+        assert_eq!(result, TaleaValue::Number(2));
+    }
+
+    #[test]
+    fn count_sentences_in_string() {
+        let mut interpreter = Interpreter::new();
+        let stmts = vec![
+            Statement::Define {
+                name: Expression::Identifier("article".into()),
+                value: Expression::StringLiteral("Hello world. This is a test!".into()),
+            },
+            Statement::Count {
+                unit: Expression::Unit(Token::Sentences),
+                source: Expression::Identifier("article".into()),
+                destination: Expression::Identifier("sentence_count".into()),
+            },
+        ];
+        interpreter.execute(stmts).unwrap();
+        let result = interpreter.environment.get("sentence_count").unwrap();
+        assert_eq!(result, TaleaValue::Number(2));
+    }
+
+    #[test]
+    fn count_paragraphs_in_string() {
+        let mut interpreter = Interpreter::new();
+        let stmts = vec![
+            Statement::Define {
+                name: Expression::Identifier("article".into()),
+                value: Expression::StringLiteral("First para.\n\nSecond para.".into()),
+            },
+            Statement::Count {
+                unit: Expression::Unit(Token::Paragraphs),
+                source: Expression::Identifier("article".into()),
+                destination: Expression::Identifier("para_count".into()),
+            },
+        ];
+        interpreter.execute(stmts).unwrap();
+        let result = interpreter.environment.get("para_count").unwrap();
         assert_eq!(result, TaleaValue::Number(2));
     }
 }
