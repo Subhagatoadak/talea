@@ -93,7 +93,10 @@ impl Parser {
         let source = self.parse_expression()?;
         self.consume(Token::As)?;
         let destination = self.parse_identifier_expression()?;
-        Ok(Statement::Normalize { source, destination })
+        Ok(Statement::Normalize {
+            source,
+            destination,
+        })
     }
 
     fn parse_tag_statement(&mut self) -> Result<Statement, String> {
@@ -143,7 +146,10 @@ impl Parser {
                 };
                 self.consume(Token::To)?;
                 let value = self.parse_expression()?;
-                return Ok(Statement::SetEnv { name: var_name, value });
+                return Ok(Statement::SetEnv {
+                    name: var_name,
+                    value,
+                });
             }
         }
         let name = self.parse_identifier_expression()?;
@@ -375,6 +381,17 @@ impl Parser {
 
     // Expression parsing logic
     fn parse_expression(&mut self) -> Result<Expression, String> {
+        let mut expr = self.parse_primary()?;
+        while let Some(Token::LBracket) = self.current_token() {
+            self.advance();
+            let index_expr = self.parse_expression()?;
+            self.consume(Token::RBracket)?;
+            expr = Expression::Index(Box::new(expr), Box::new(index_expr));
+        }
+        Ok(expr)
+    }
+
+    fn parse_primary(&mut self) -> Result<Expression, String> {
         match self.current_token().cloned() {
             Some(Token::String(v)) => {
                 self.advance();
@@ -384,10 +401,27 @@ impl Parser {
                 self.advance();
                 Ok(Expression::Number(v))
             }
-            // For any other token, treat it as a potential identifier.
+            Some(Token::LBracket) => self.parse_list_literal(),
             Some(_) => self.parse_identifier_expression(),
             None => Err("Expected an expression, but found nothing.".to_string()),
         }
+    }
+
+    fn parse_list_literal(&mut self) -> Result<Expression, String> {
+        self.consume(Token::LBracket)?;
+        let mut elems = Vec::new();
+        while let Some(tok) = self.current_token() {
+            if matches!(tok, Token::RBracket) {
+                break;
+            }
+            let expr = self.parse_expression()?;
+            elems.push(expr);
+            if let Some(Token::Comma) = self.current_token() {
+                self.advance();
+            }
+        }
+        self.consume(Token::RBracket)?;
+        Ok(Expression::ListLiteral(elems))
     }
 
     // This function now correctly handles keywords by turning them into identifier strings.

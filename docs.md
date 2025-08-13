@@ -40,7 +40,7 @@ The following commands are currently supported by the Talea interpreter. Each co
 | ------- | ------- | ------- |
 | `load` | Read a file into a variable | `load "article.txt" as article` |
 | `tokenize` | Split text into individual tokens | `tokenize article as tokens` |
-| `split` | Split text by a unit such as words or sentences | `split sentences in article as lines` |
+| `split` | Split text by a unit such as words, sentences, lines, or characters | `split lines in article as lines` |
 | `normalize` | Normalize text (e.g., lowercase) | `normalize article as clean_article` |
 | `tag` | Apply NLP tagging using spaCy (NER, POS) | `tag article with ner as entities` |
 | `count` | Count units in a list or text | `count words in article as word_count` |
@@ -94,6 +94,14 @@ for each s in sentences do
     print tokens
 end
 ```
+
+### List Indexing
+```talea
+load "article.txt" as article
+split sentences in article as sentences
+print sentences[0]
+```
+This prints the first sentence. Lists can also be created using brackets, for example `define numbers as [1,2,3]`.
 
 ### Normalization and Lemmatization
 ```talea

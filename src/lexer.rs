@@ -151,6 +151,11 @@ pub enum Token {
     String(String),
     Number(i64),
 
+    // === Symbols ===
+    LBracket,
+    RBracket,
+    Comma,
+
     // === Other ===
     Eof,
     Illegal(String),
@@ -187,6 +192,18 @@ impl<'a> Lexer<'a> {
         let ch = self.current_char().unwrap();
         match ch {
             '"' => self.read_string(),
+            '[' => {
+                self.advance();
+                Token::LBracket
+            }
+            ']' => {
+                self.advance();
+                Token::RBracket
+            }
+            ',' => {
+                self.advance();
+                Token::Comma
+            }
             _ if ch.is_alphabetic() => self.read_identifier(),
             _ if ch.is_digit(10) => self.read_number(),
             _ => {
