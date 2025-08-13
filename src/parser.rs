@@ -35,6 +35,7 @@ impl Parser {
             Some(Token::Split) => self.parse_split_statement(),
             Some(Token::Normalize) => self.parse_normalize_statement(),
             Some(Token::Count) => self.parse_count_statement(),
+            Some(Token::Concordance) | Some(Token::KWIC) => self.parse_concordance_statement(),
             Some(Token::Tag) => self.parse_tag_statement(),
             Some(Token::Import) => self.parse_import_statement(),
             Some(Token::Install) => self.parse_install_statement(),
@@ -123,6 +124,20 @@ impl Parser {
         let destination = self.parse_identifier_expression()?;
         Ok(Statement::Count {
             unit,
+            source,
+            destination,
+        })
+    }
+
+    fn parse_concordance_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let word = self.parse_expression()?;
+        self.consume(Token::In)?;
+        let source = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Concordance {
+            word,
             source,
             destination,
         })
