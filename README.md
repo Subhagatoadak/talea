@@ -199,7 +199,7 @@ If a required package isn't present, Talea can install it for you:
 > install r "quanteda"
 ```
 
-After installation, you can `import` the module and use it immediately.
+After installation, you can `import` the module and use it immediately. Talea sets the CRAN mirror to `https://cloud.r-project.org` for R packages, so you won't be prompted to choose one.
 
 -----
 

@@ -79,7 +79,8 @@ install r "quanteda"
 ```
 
 When an import fails, the interpreter still provides a helpful hint showing which
-`install` command to run.
+`install` command to run. For R packages, Talea automatically uses the `https://cloud.r-project.org` CRAN mirror to avoid
+interactive prompts.
 
 ## Common NLP Techniques in Talea
 
