@@ -47,6 +47,10 @@ impl Parser {
             Some(Token::Install) => self.parse_install_statement(),
             Some(Token::Call) => self.parse_call_statement(),
             Some(Token::For) => self.parse_foreach_statement(),
+            Some(Token::Help) => {
+                self.advance();
+                Ok(Statement::Help)
+            }
             Some(Token::Identifier(s)) if s.eq_ignore_ascii_case("openai") => {
                 self.parse_openai_statement()
             }

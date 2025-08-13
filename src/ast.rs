@@ -36,6 +36,7 @@ pub enum Backend {
 #[derive(Debug, PartialEq)]
 pub enum Statement {
     Use(Backend), // New: `use python`
+    Help,
     Load {
         source: Expression,
         alias: Expression,

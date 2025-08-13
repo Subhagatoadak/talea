@@ -49,6 +49,7 @@ impl Interpreter {
     fn execute_statement(&mut self, statement: &Statement) -> std::result::Result<(), String> {
         match statement {
             Statement::Use(backend) => self.execute_use_statement(backend),
+            Statement::Help => self.execute_help_statement(),
             Statement::Summarize {
                 source,
                 destination,
@@ -168,6 +169,22 @@ impl Interpreter {
         println!("[Interpreter: {:?} backend enabled.]", backend);
         // The R engine is now initialized automatically by the `test!` macro when it's needed.
         // We no longer need any special code here.
+        Ok(())
+    }
+
+    fn execute_help_statement(&mut self) -> std::result::Result<(), String> {
+        const DOCS: &str = include_str!("../../docs.md");
+        const START: &str = "| Command |";
+        const END: &str = "### Additional Notes";
+
+        if let Some(start_idx) = DOCS.find(START) {
+            let rest = &DOCS[start_idx..];
+            let end_idx = rest.find(END).unwrap_or(rest.len());
+            let table = &rest[..end_idx];
+            println!("{}", table.trim());
+        } else {
+            println!("Help documentation not found.");
+        }
         Ok(())
     }
 

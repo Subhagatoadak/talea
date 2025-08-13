@@ -34,7 +34,7 @@ Python and R are powerful but intimidating. Talea focuses on accessibility:
 
 ## Command Reference
 
-The following commands are currently supported by the Talea interpreter. Each command is presented with a short description and an example.
+The following commands are currently supported by the Talea interpreter. Each command is presented with a short description and an example. This table is also used by the `help` command in the interpreter to keep documentation and runtime output in sync.
 
 | Command | Purpose | Example |
 | ------- | ------- | ------- |
