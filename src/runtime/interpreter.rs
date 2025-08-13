@@ -515,7 +515,9 @@ impl Interpreter {
                     let m = module.bind(py);
                     // Support nested function paths like "corpora.Dictionary" by
                     // traversing each attribute before calling the final one.
-                    let mut current: pyo3::Bound<'_, PyAny> = m.as_any();
+                    // `as_any` returns a reference which cannot be mutated, so
+                    // convert the module into a generic `PyAny` first.
+                    let mut current: pyo3::Bound<'_, PyAny> = m.into_any();
                     for attr_name in func_name.split('.') {
                         current = current.getattr(attr_name)?;
                     }
