@@ -5,7 +5,7 @@ use crate::lexer::Token;
 
 pub mod interpreter;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TaleaValue {
     String(String),
     Number(i64),
