@@ -33,7 +33,13 @@ impl Parser {
             Some(Token::Print) => self.parse_print_statement(),
             Some(Token::Tokenize) => self.parse_tokenize_statement(),
             Some(Token::Split) => self.parse_split_statement(),
+            Some(Token::Join) => self.parse_join_statement(),
+            Some(Token::Replace) => self.parse_replace_statement(),
+            Some(Token::Clean) => self.parse_clean_statement(),
             Some(Token::Normalize) => self.parse_normalize_statement(),
+            Some(Token::Lowercase) => self.parse_lowercase_statement(),
+            Some(Token::Uppercase) => self.parse_uppercase_statement(),
+            Some(Token::Stem) => self.parse_stem_statement(),
             Some(Token::Count) => self.parse_count_statement(),
             Some(Token::Concordance) | Some(Token::KWIC) => self.parse_concordance_statement(),
             Some(Token::Tag) => self.parse_tag_statement(),
@@ -87,6 +93,72 @@ impl Parser {
             source,
             destination,
         })
+    }
+
+    fn parse_join_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let unit = self.parse_unit_expression()?;
+        self.consume(Token::In)?;
+        let source = self.parse_expression()?;
+        self.consume(Token::With)?;
+        let separator = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Join {
+            unit,
+            source,
+            separator,
+            destination,
+        })
+    }
+
+    fn parse_replace_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let pattern = self.parse_expression()?;
+        self.consume(Token::With)?;
+        let replacement = self.parse_expression()?;
+        self.consume(Token::In)?;
+        let source = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Replace {
+            pattern,
+            replacement,
+            source,
+            destination,
+        })
+    }
+
+    fn parse_clean_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let source = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Clean { source, destination })
+    }
+
+    fn parse_lowercase_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let source = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Lowercase { source, destination })
+    }
+
+    fn parse_uppercase_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let source = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Uppercase { source, destination })
+    }
+
+    fn parse_stem_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let source = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Stem { source, destination })
     }
 
     fn parse_normalize_statement(&mut self) -> Result<Statement, String> {

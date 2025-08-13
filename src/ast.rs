@@ -58,6 +58,34 @@ pub enum Statement {
         source: Expression,
         destination: Expression,
     },
+    Join {
+        unit: Expression,
+        source: Expression,
+        separator: Expression,
+        destination: Expression,
+    },
+    Replace {
+        pattern: Expression,
+        replacement: Expression,
+        source: Expression,
+        destination: Expression,
+    },
+    Clean {
+        source: Expression,
+        destination: Expression,
+    },
+    Lowercase {
+        source: Expression,
+        destination: Expression,
+    },
+    Uppercase {
+        source: Expression,
+        destination: Expression,
+    },
+    Stem {
+        source: Expression,
+        destination: Expression,
+    },
     Normalize {
         source: Expression,
         destination: Expression,
