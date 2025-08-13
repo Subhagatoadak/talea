@@ -762,6 +762,33 @@ impl Interpreter {
                     .define(dest_name, TaleaValue::List(sentences));
                 Ok(())
             }
+            Token::Lines => {
+                let lines: Vec<TaleaValue> = text
+                    .lines()
+                    .map(|l| TaleaValue::String(l.to_string()))
+                    .collect();
+                println!("[Interpreter: Split text into {} lines.]", lines.len());
+                self.environment.define(dest_name, TaleaValue::List(lines));
+                Ok(())
+            }
+            Token::Words | Token::Tokens => {
+                let words: Vec<TaleaValue> = text
+                    .split_whitespace()
+                    .map(|w| TaleaValue::String(w.to_string()))
+                    .collect();
+                println!("[Interpreter: Split text into {} words.]", words.len());
+                self.environment.define(dest_name, TaleaValue::List(words));
+                Ok(())
+            }
+            Token::Characters => {
+                let chars: Vec<TaleaValue> = text
+                    .chars()
+                    .map(|c| TaleaValue::String(c.to_string()))
+                    .collect();
+                println!("[Interpreter: Split text into {} characters.]", chars.len());
+                self.environment.define(dest_name, TaleaValue::List(chars));
+                Ok(())
+            }
             _ => Err("Unsupported unit for split".to_string()),
         }
     }
@@ -864,6 +891,26 @@ impl Interpreter {
                 .get(name)
                 .ok_or_else(|| format!("Variable '{}' not found.", name)),
             Expression::Unit(token) => Ok(TaleaValue::Unit(token.clone())),
+            Expression::ListLiteral(items) => {
+                let mut vals = Vec::new();
+                for item in items {
+                    vals.push(self.evaluate_expression(item)?);
+                }
+                Ok(TaleaValue::List(vals))
+            }
+            Expression::Index(expr, idx) => {
+                let list_val = self.evaluate_expression(expr)?;
+                let idx_val = self.evaluate_expression(idx)?;
+                match (list_val, idx_val) {
+                    (TaleaValue::List(l), TaleaValue::Number(n)) => {
+                        let i = n as usize;
+                        l.get(i)
+                            .cloned()
+                            .ok_or_else(|| "Index out of bounds".to_string())
+                    }
+                    _ => Err("Indexing requires a list and a numeric index".to_string()),
+                }
+            }
         }
     }
     fn get_identifier_name(&self, expression: &Expression) -> std::result::Result<String, String> {

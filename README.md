@@ -252,7 +252,7 @@ Talea understands a growing set of plain-English commands. The table below summa
 |--------|---------|---------|
 | `load` | Read a file into a variable | `load "file.txt" as my_text` |
 | `tokenize` | Split text into tokens | `tokenize my_text as tokens` |
-| `split` | Split text by unit (word, sentence) | `split sentences in my_text as lines` |
+| `split` | Split text by unit (word, sentence, line, character) | `split lines in my_text as lines` |
 | `normalize` | Normalize text (e.g., lowercase) | `normalize my_text as clean_text` |
 | `tag` | NLP tagging with spaCy (NER, POS) | `tag my_text with ner as entities` |
 | `count` | Count units in a list or text | `count words in my_text as word_count` |

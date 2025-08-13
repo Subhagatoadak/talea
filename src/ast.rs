@@ -8,6 +8,8 @@ pub enum Expression {
     StringLiteral(String),
     Number(i64),
     Unit(Token),
+    ListLiteral(Vec<Expression>),
+    Index(Box<Expression>, Box<Expression>),
 }
 #[derive(Debug, PartialEq)]
 pub enum ArithmeticOp {
