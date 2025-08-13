@@ -252,12 +252,34 @@ Talea understands a growing set of plain-English commands. The table below summa
 |--------|---------|---------|
 | `load` | Read a file into a variable | `load "file.txt" as my_text` |
 | `tokenize` | Split text into tokens | `tokenize my_text as tokens` |
-| `split` | Split text by unit (word, sentence, line, character) | `split lines in my_text as lines` |
+| `split` | Split text by unit (word, sentence, line, character, paragraph) | `split lines in my_text as lines` |
+| `join` | Join list items into text | `join words in tokens with " " as sentence` |
+| `replace` | Replace text patterns | `replace "cat" with "dog" in my_text as new_text` |
+| `clean` | Remove punctuation/whitespace | `clean my_text as cleaned` |
 | `normalize` | Normalize text (e.g., lowercase) | `normalize my_text as clean_text` |
+| `lowercase/uppercase` | Change text case | `lowercase my_text as lower_text` |
+| `stem` | Stem words | `stem my_text as stems` |
+| `lemmatize` | Lemmatize text via spaCy | `lemmatize my_text as lemmas` |
 | `tag` | NLP tagging with spaCy (NER, POS) | `tag my_text with ner as entities` |
+| `summarize` | Summarize text | `summarize my_text as summary` |
+| `paraphrase` | Rephrase text using OpenAI | `paraphrase my_text as paraphrased` |
+| `phrase` | Extract phrases from text | `phrase my_text as phrases` |
+| `paragraph` | Work with paragraphs | `paragraph my_text as paras` |
+| `concordance` | Find sentences containing a word | `concordance "rust" in my_text as contexts` |
 | `count` | Count units in a list or text | `count words in my_text as word_count` |
+| `filter` | Filter lists by condition | `filter tokens containing "rust" as rust_tokens` |
+| `remove` | Remove items from a list | `remove stopwords from tokens as clean_tokens` |
+| `slice` | Slice list by index | `slice tokens from 0 to 5 as first_tokens` |
+| `sort` | Sort list items | `sort tokens ascending as sorted_tokens` |
+| `group` | Group list items by key | `group tokens by length as groups` |
+| `first/last` | Retrieve first or last item | `first token in tokens as start` |
+| `sample` | Random sample from list | `sample 10 from tokens as sample_tokens` |
 | `define` | Create variables | `define threshold as 10` |
 | `set environment variable` | Set OS environment variables | `set environment variable API_KEY to "123"` |
+| `today` | Get the current date | `today as current_date` |
+| `format date` | Format a date string | `format date current_date with "%Y-%m-%d" as formatted` |
+| `parse date` | Parse text into a date | `parse date "2024-01-01" as d` |
+| `date diff` | Difference between dates | `date diff start_date and end_date as days` |
 | `use` | Choose backend language | `use python` |
 | `import` | Import a Python or R module | `import python "math" as m` |
 | `install` | Install a Python module or R package | `install python "textblob"` |
@@ -265,9 +287,6 @@ Talea understands a growing set of plain-English commands. The table below summa
 | `for each` | Loop over lists | `for each item in items do ... end` |
 | `openai` | Query OpenAI models | `openai "Hello" as reply` |
 | `add/subtract/multiply/divide` | Arithmetic operations | `add 5 to count as new_count` |
-| `summarize` | Summarize text | `summarize my_text as summary` |
-| `lemmatize` | Lemmatize text via spaCy | `lemmatize my_text as lemmas` |
-| `filter` | Filter lists by condition | `filter tokens containing "rust" as rust_tokens` |
 | `save` | Write content to a file | `save results to "out.txt"` |
 | `print` | Display a value | `print summary` |
 

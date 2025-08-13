@@ -67,6 +67,11 @@ pub enum Statement {
         source: Expression,
         destination: Expression,
     },
+    Concordance {
+        word: Expression,
+        source: Expression,
+        destination: Expression,
+    },
     Tag {
         source: Expression,
         method: Expression,

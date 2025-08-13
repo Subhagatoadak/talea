@@ -89,6 +89,11 @@ impl Interpreter {
                 source,
                 destination,
             } => self.execute_count_statement(unit, source, destination),
+            Statement::Concordance {
+                word,
+                source,
+                destination,
+            } => self.execute_concordance_statement(word, source, destination),
             Statement::Lemmatize {
                 source,
                 destination,
@@ -872,6 +877,28 @@ impl Interpreter {
                 ));
             }
         }
+        Ok(())
+    }
+
+    fn execute_concordance_statement(
+        &mut self,
+        word: &Expression,
+        source: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let target = self.get_string_value(word)?.to_lowercase();
+        let text = self.get_string_value(source)?;
+        let dest_name = self.get_identifier_name(destination)?;
+        let sentences: Vec<TaleaValue> = text
+            .split(|c| c == '.' || c == '!' || c == '?' || c == '\n')
+            .map(|s| s.trim().to_string())
+            .filter(|s| s.to_lowercase().contains(&target))
+            .map(TaleaValue::String)
+            .collect();
+        let count = sentences.len();
+        self.environment
+            .define(dest_name, TaleaValue::List(sentences));
+        println!("[Interpreter: Found {} occurrences]", count);
         Ok(())
     }
     fn execute_print_statement(
