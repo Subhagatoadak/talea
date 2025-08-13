@@ -94,6 +94,9 @@ pub enum Token {
     Each,
     Do,
     End,
+    If,
+    Then,
+    Else,
 
     // === Nouns (Units, Targets, Concepts) ===
     Words,
@@ -324,6 +327,9 @@ impl<'a> Lexer<'a> {
             "each" => Token::Each,
             "do" => Token::Do,
             "end" => Token::End,
+            "if" => Token::If,
+            "then" => Token::Then,
+            "else" => Token::Else,
 
             _ => Token::Identifier(text.to_string()),
         }
