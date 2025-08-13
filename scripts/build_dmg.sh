@@ -46,7 +46,8 @@ DMG_NAME="$DIST_DIR/${APP_NAME}-${VERSION}.dmg"
 
 # Create DMG (requires macOS hdiutil)
 if command -v hdiutil >/dev/null 2>&1; then
-    npx --yes create-dmg "$APP_DIR" "$DMG_NAME" --overwrite >/tmp/dmg.log && tail -n 20 /tmp/dmg.log
+    npx --yes create-dmg "$APP_DIR" "$DIST_DIR" --overwrite >/tmp/dmg.log && tail -n 20 /tmp/dmg.log
+    mv "$DIST_DIR/${APP_NAME} ${VERSION}.dmg" "$DMG_NAME" 2>/dev/null || true
 else
     echo "hdiutil not found; skipping DMG creation. Run this on macOS." >&2
 fi
