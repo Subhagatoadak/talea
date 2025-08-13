@@ -129,7 +129,7 @@ mod tests {
 
     #[test]
     fn builds_from_env_without_key() {
-        std::env::remove_var("OPENAI_API_KEY");
+        unsafe { std::env::remove_var("OPENAI_API_KEY"); }
         let result = OpenAiPipeline::from_env("gpt-3.5-turbo");
         assert!(result.is_err());
     }
