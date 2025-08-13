@@ -148,14 +148,17 @@ enable the R backend first with `use r`.
 
 ### Topic Modeling (via Python's `gensim`)
 Talea supports nested module calls, letting you access functions like
-`g.corpora.Dictionary` and `g.models.LdaModel` directly.
+`g.corpora.Dictionary` and `g.models.LdaModel` directly. Wrap your tokens in a
+list to build the dictionary, then turn the tokens into a bag of words for the
+LDA model.
 ```talea
 use python
 import python "gensim" as g
 load "article.txt" as article
 tokenize article as tokens
-call g corpora.Dictionary tokens as dict
-call g models.LdaModel [tokens, dict, 5] as lda
+call g corpora.Dictionary [tokens] as dict
+call dict doc2bow tokens as bow
+call g models.LdaModel [[bow], dict, 5] as lda
 print lda
 ```
 
@@ -164,7 +167,7 @@ print lda
 use python
 import python "textblob" as tb
 call tb TextBlob "Talea makes NLP easy" as blob
-call blob sentiment as sentiment
+call tb sentiment blob as sentiment
 print sentiment
 ```
 
