@@ -904,9 +904,7 @@ impl Interpreter {
                 let replaced: Vec<TaleaValue> = list
                     .into_iter()
                     .map(|item| match item {
-                        TaleaValue::String(s) => {
-                            TaleaValue::String(s.replace(&pat, &repl))
-                        }
+                        TaleaValue::String(s) => TaleaValue::String(s.replace(&pat, &repl)),
                         _ => item,
                     })
                     .collect();
@@ -936,9 +934,7 @@ impl Interpreter {
                 let cleaned: Vec<TaleaValue> = list
                     .into_iter()
                     .map(|item| match item {
-                        TaleaValue::String(s) => {
-                            TaleaValue::String(Self::clean_text(&s))
-                        }
+                        TaleaValue::String(s) => TaleaValue::String(Self::clean_text(&s)),
                         _ => item,
                     })
                     .collect();
@@ -971,8 +967,7 @@ impl Interpreter {
                         _ => item,
                     })
                     .collect();
-                self.environment
-                    .define(dest_name, TaleaValue::List(lower));
+                self.environment.define(dest_name, TaleaValue::List(lower));
                 Ok(())
             }
             _ => Err("The 'lowercase' command requires a string or list.".to_string()),
@@ -1000,8 +995,7 @@ impl Interpreter {
                         _ => item,
                     })
                     .collect();
-                self.environment
-                    .define(dest_name, TaleaValue::List(upper));
+                self.environment.define(dest_name, TaleaValue::List(upper));
                 Ok(())
             }
             _ => Err("The 'uppercase' command requires a string or list.".to_string()),
@@ -1021,22 +1015,18 @@ impl Interpreter {
                     .split_whitespace()
                     .map(|w| TaleaValue::String(Self::stem_word(w)))
                     .collect();
-                self.environment
-                    .define(dest_name, TaleaValue::List(stems));
+                self.environment.define(dest_name, TaleaValue::List(stems));
                 Ok(())
             }
             TaleaValue::List(list) => {
                 let stems: Vec<TaleaValue> = list
                     .into_iter()
                     .map(|item| match item {
-                        TaleaValue::String(s) => {
-                            TaleaValue::String(Self::stem_word(&s))
-                        }
+                        TaleaValue::String(s) => TaleaValue::String(Self::stem_word(&s)),
                         _ => item,
                     })
                     .collect();
-                self.environment
-                    .define(dest_name, TaleaValue::List(stems));
+                self.environment.define(dest_name, TaleaValue::List(stems));
                 Ok(())
             }
             _ => Err("The 'stem' command requires a string or list.".to_string()),
@@ -1200,7 +1190,6 @@ impl Interpreter {
         }
     }
 
-
     fn execute_if_statement(
         &mut self,
         condition: &Expression,
@@ -1221,6 +1210,7 @@ impl Interpreter {
             self.execute_statement(stmt)?;
         }
         Ok(())
+    }
 
     fn clean_text(input: &str) -> String {
         let filtered: String = input
@@ -1238,7 +1228,6 @@ impl Interpreter {
             }
         }
         lower
-
     }
 
     fn execute_foreach_statement(
