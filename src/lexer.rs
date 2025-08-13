@@ -199,7 +199,7 @@ impl<'a> Lexer<'a> {
     fn read_identifier(&mut self) -> Token {
         let start = self.position;
         while let Some(ch) = self.current_char() {
-            if !ch.is_alphanumeric() && ch != '_' {
+            if !ch.is_alphanumeric() && ch != '_' && ch != '.' {
                 break;
             }
             self.advance();

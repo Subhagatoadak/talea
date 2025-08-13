@@ -128,17 +128,16 @@ Talea can summarize plain text directly. To summarize a list of numbers,
 enable the R backend first with `use r`.
 
 ### Topic Modeling (via Python's `gensim`)
-Nested module calls (for example `g.corpora.Dictionary` or `g.models.LdaModel`)
-are not yet supported, but will be added in a future release.
+Talea supports nested module calls, letting you access functions like
+`g.corpora.Dictionary` and `g.models.LdaModel` directly.
 ```talea
 use python
 import python "gensim" as g
 load "article.txt" as article
 tokenize article as tokens
-# The following commands are planned for a future release:
-# call g corpora Dictionary tokens as dict
-# call g models LdaModel [tokens, dict, 5] as lda
-print tokens
+call g corpora.Dictionary tokens as dict
+call g models.LdaModel [tokens, dict, 5] as lda
+print lda
 ```
 
 ### Sentiment Analysis (via `textblob`)
