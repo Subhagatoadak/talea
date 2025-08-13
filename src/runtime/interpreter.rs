@@ -512,12 +512,11 @@ impl Interpreter {
         match self.libraries.get(&lib_name) {
             Some(Library::Python(module)) => {
                 let result = Python::with_gil(|py| -> PyResult<TaleaValue> {
-                    let m = module.bind(py);
                     // Support nested function paths like "corpora.Dictionary" by
                     // traversing each attribute before calling the final one.
-                    // `as_any` returns a reference which cannot be mutated, so
-                    // convert the module into a generic `PyAny` first.
-                    let mut current: pyo3::Bound<'_, PyAny> = m.into_any();
+                    // `bind` returns a shared reference, so clone before
+                    // converting the module into a generic `PyAny`.
+                    let mut current: pyo3::Bound<'_, PyAny> = module.bind(py).clone().into_any();
                     for attr_name in func_name.split('.') {
                         current = current.getattr(attr_name)?;
                     }
