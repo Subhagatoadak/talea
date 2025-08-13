@@ -1068,7 +1068,14 @@ impl Interpreter {
                 self.environment
                     .define(dest_name, TaleaValue::Number(count));
             }
-            // CASE 2: Get character/line count from a single string
+            // CASE 2: Count words/tokens in a single string (e.g., "count words in article")
+            (Token::Words | Token::Tokens, TaleaValue::String(s)) => {
+                let count = s.split_whitespace().count() as i64;
+                println!("[Interpreter: Counted {} words]", count);
+                self.environment
+                    .define(dest_name, TaleaValue::Number(count));
+            }
+            // CASE 3: Get character/line count from a single string
             (Token::Characters, TaleaValue::String(s)) => {
                 let count = s.len() as i64;
                 println!("[Interpreter: Counted {} characters]", count);
@@ -1082,7 +1089,7 @@ impl Interpreter {
                     .define(dest_name, TaleaValue::Number(count));
             }
 
-            // CASE 3: Get character count for *each item* in a list
+            // CASE 4: Get character count for *each item* in a list
             (Token::Characters, TaleaValue::List(l)) => {
                 let lengths: Vec<TaleaValue> = l
                     .iter()
@@ -1390,5 +1397,24 @@ mod tests {
         let stmts = vec![Statement::Print(Expression::Identifier("x".into()))];
         let err = interpreter.execute(stmts).unwrap_err();
         assert!(err.contains("Did you forget to define or load"), "{}", err);
+    }
+
+    #[test]
+    fn count_words_in_string() {
+        let mut interpreter = Interpreter::new();
+        let stmts = vec![
+            Statement::Define {
+                name: Expression::Identifier("article".into()),
+                value: Expression::StringLiteral("hello world".into()),
+            },
+            Statement::Count {
+                unit: Expression::Unit(Token::Words),
+                source: Expression::Identifier("article".into()),
+                destination: Expression::Identifier("word_count".into()),
+            },
+        ];
+        interpreter.execute(stmts).unwrap();
+        let result = interpreter.environment.get("word_count").unwrap();
+        assert_eq!(result, TaleaValue::Number(2));
     }
 }
