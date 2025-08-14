@@ -244,7 +244,7 @@ impl<'a> Lexer<'a> {
                 self.advance();
                 Token::Equals
             }
-            _ if ch.is_alphabetic() => self.read_identifier(),
+            _ if ch.is_alphabetic() || ch == '_' => self.read_identifier(),
             _ if ch.is_digit(10) => self.read_number(),
             _ => {
                 self.advance();

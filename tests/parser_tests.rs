@@ -136,6 +136,20 @@ fn test_parse_callmethod() {
 }
 
 #[test]
+fn test_parse_callmethod_dunder() {
+    let statements = parse("callmethod data __getitem__ 0 as first");
+    assert_eq!(
+        statements[0],
+        Statement::CallMethod {
+            object: Expression::Identifier("data".to_string()),
+            method: Expression::Identifier("__getitem__".to_string()),
+            args: vec![Expression::Number(0)],
+            destination: Expression::Identifier("first".to_string()),
+        }
+    );
+}
+
+#[test]
 fn test_parse_expression_statement() {
     let statements = parse("data");
     assert_eq!(
