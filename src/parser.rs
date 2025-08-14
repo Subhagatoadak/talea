@@ -71,7 +71,6 @@ impl Parser {
                 self.parse_stat_test_statement()
             }
 
-
             Some(Token::Shapiro) => self.parse_shapiro_statement(),
             Some(Token::Kolmogorov) => self.parse_kolmogorov_statement(),
 
@@ -81,9 +80,9 @@ impl Parser {
             Some(Token::Skewness) => self.parse_skewness_statement(),
             Some(Token::Kurtosis) => self.parse_kurtosis_statement(),
 
-
             Some(Token::Import) => self.parse_import_statement(),
             Some(Token::Install) => self.parse_install_statement(),
+            Some(Token::CallMethod) => self.parse_call_method_statement(),
             Some(Token::Call) => self.parse_call_statement(),
             Some(Token::If) => self.parse_if_statement(),
             Some(Token::For) => self.parse_foreach_statement(),
@@ -290,7 +289,6 @@ impl Parser {
         })
     }
 
-
     fn parse_stat_test_statement(&mut self) -> Result<Statement, String> {
         // optional sample descriptor
         let mut sample: Option<String> = None;
@@ -391,7 +389,6 @@ impl Parser {
         })
     }
 
-
     fn parse_kolmogorov_statement(&mut self) -> Result<Statement, String> {
         self.advance();
         match self.current_token() {
@@ -465,7 +462,6 @@ impl Parser {
 
             destination,
         })
-
     }
 
     fn parse_count_statement(&mut self) -> Result<Statement, String> {
@@ -673,6 +669,27 @@ impl Parser {
         Ok(Statement::Call {
             library,
             function,
+            args,
+            destination,
+        })
+    }
+
+    fn parse_call_method_statement(&mut self) -> Result<Statement, String> {
+        self.advance(); // consume 'callmethod'
+        let object = self.parse_identifier_expression()?;
+        let method = self.parse_identifier_expression()?;
+        let mut args = Vec::new();
+        while let Some(tok) = self.current_token() {
+            if matches!(tok, Token::As) {
+                break;
+            }
+            args.push(self.parse_expression()?);
+        }
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::CallMethod {
+            object,
+            method,
             args,
             destination,
         })

@@ -122,6 +122,20 @@ fn test_parse_search() {
 }
 
 #[test]
+fn test_parse_callmethod() {
+    let statements = parse("callmethod data describe as summary");
+    assert_eq!(
+        statements[0],
+        Statement::CallMethod {
+            object: Expression::Identifier("data".to_string()),
+            method: Expression::Identifier("describe".to_string()),
+            args: vec![],
+            destination: Expression::Identifier("summary".to_string()),
+        }
+    );
+}
+
+#[test]
 fn test_parse_compare() {
     let statements = parse("compare a to b as result");
     assert_eq!(
