@@ -38,6 +38,15 @@ impl Interpreter {
         }
     }
 
+    /// Retrieve a variable from the interpreter's environment.
+    ///
+    /// This helper is primarily intended for use in tests so that
+    /// assertions can be made about the values produced by executing
+    /// Talea statements.
+    pub fn get_variable(&self, name: &str) -> Option<TaleaValue> {
+        self.environment.get(name)
+    }
+
     // FIX: Explicitly use `std::result::Result` to avoid name collision with extendr's Result type.
     // This fix is applied to all function signatures in this file.
     pub fn execute(&mut self, statements: Vec<Statement>) -> std::result::Result<(), String> {
