@@ -478,6 +478,7 @@ impl Interpreter {
                 destination,
             } => self.execute_save_statement(source, destination),
             Statement::Print(expression) => self.execute_print_statement(expression),
+            Statement::Expression(expression) => self.execute_expression_statement(expression),
             Statement::Tokenize {
                 source,
                 destination,
@@ -1421,43 +1422,42 @@ def run_regression(csv, target, features):
         destination: &Expression,
     ) -> std::result::Result<(), String> {
         let obj_name = self.get_identifier_name(object)?;
+        let obj_value = self.evaluate_expression(object)?;
         let method_name = self.get_identifier_name(method)?;
         let dest_name = self.get_identifier_name(destination)?;
         let arg_values = args
             .iter()
             .map(|e| self.evaluate_expression(e))
             .collect::<std::result::Result<Vec<_>, _>>()?;
-        if let Some(TaleaValue::PyObject(obj)) = self.environment.get(&obj_name) {
-            let result = Python::with_gil(|py| -> PyResult<TaleaValue> {
-                let mut current: pyo3::Bound<'_, PyAny> = obj.bind(py).clone();
-                for attr_name in method_name.split('.') {
-                    current = current.getattr(attr_name)?;
-                }
-                let py_args: Vec<PyObject> = arg_values
-                    .iter()
-                    .map(|v| Interpreter::talea_value_to_py(py, v))
-                    .collect();
-                if current.is_callable() {
-                    let args_tuple = PyTuple::new_bound(py, py_args);
-                    let res = current.call1(args_tuple)?;
-                    Ok(Interpreter::py_obj_to_talea(res, false))
-                } else {
-                    if !py_args.is_empty() {
-                        return Err(pyo3::exceptions::PyTypeError::new_err(
-                            "Tried to call non-callable attribute with arguments",
-                        ));
+        match obj_value {
+            TaleaValue::PyObject(obj) => {
+                let result = Python::with_gil(|py| -> PyResult<TaleaValue> {
+                    let mut current: pyo3::Bound<'_, PyAny> = obj.bind(py).clone();
+                    for attr_name in method_name.split('.') {
+                        current = current.getattr(attr_name)?;
                     }
-                    Ok(Interpreter::py_obj_to_talea(current, false))
-                }
-            })
-            .map_err(|e| format!("Python Error: {}", e))?;
-            self.environment.define(dest_name, result);
-            Ok(())
-        } else {
-            Err(format!(
-                "Object '{}' not found. Did you define it?",
-                obj_name
-            ))
+                    let py_args: Vec<PyObject> = arg_values
+                        .iter()
+                        .map(|v| Interpreter::talea_value_to_py(py, v))
+                        .collect();
+                    if current.is_callable() {
+                        let args_tuple = PyTuple::new_bound(py, py_args);
+                        let res = current.call1(args_tuple)?;
+                        Ok(Interpreter::py_obj_to_talea(res, false))
+                    } else {
+                        if !py_args.is_empty() {
+                            return Err(pyo3::exceptions::PyTypeError::new_err(
+                                "Tried to call non-callable attribute with arguments",
+                            ));
+                        }
+                        Ok(Interpreter::py_obj_to_talea(current, false))
+                    }
+                })
+                .map_err(|e| format!("Python Error: {}", e))?;
+                self.environment.define(dest_name, result);
+                Ok(())
+            }
+            _ => Err(format!("Object '{}' is not a Python object", obj_name)),
         }
     }
 
@@ -2100,6 +2100,13 @@ def run_regression(csv, target, features):
             other => println!("{}", other.to_string()),
         }
         Ok(())
+    }
+
+    fn execute_expression_statement(
+        &mut self,
+        expression: &Expression,
+    ) -> std::result::Result<(), String> {
+        self.execute_print_statement(expression)
     }
 
     fn print_table(rows: &[HashMap<String, TaleaValue>]) {

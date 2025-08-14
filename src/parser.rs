@@ -99,10 +99,15 @@ impl Parser {
             Some(Token::Multiply) => self.parse_arithmetic_statement(ArithmeticOp::Multiply),
             Some(Token::Divide) => self.parse_arithmetic_statement(ArithmeticOp::Divide),
             Some(Token::Exit) | Some(Token::Quit) => std::process::exit(0),
-            Some(t) => Err(format!(
-                "Unrecognized or unimplemented command: {}",
-                token_to_string(t)
-            )),
+            Some(_) => {
+                let expr = self.parse_expression()?;
+                if let Some(tok) = self.current_token() {
+                    if !matches!(tok, Token::Eof) {
+                        return Err("Unexpected tokens after expression".to_string());
+                    }
+                }
+                Ok(Statement::Expression(expr))
+            }
             None => Err("Unexpected end of input".to_string()),
         }
     }
