@@ -61,6 +61,9 @@ The following commands are currently supported by the Talea interpreter. Each co
 | `wordcloud` | Generate word frequency list | `wordcloud article as cloud` |
 | `association` | Analyze word associations | `association tokens as pairs` |
 | `similarity` | Measure semantic similarity between texts | `similarity text1 to text2 as score` |
+| `compare` | Compare two values or lists | `compare a to b as result` |
+| `average` | Compute the average of values | `average numbers as avg_result` |
+| `check normality` | Check if values follow a normal distribution | `check normality numbers as is_normal` |
 | `semanticsearch` | Search documents by semantic similarity | `semanticsearch "rust" in docs as results` |
 | `search` | Keyword or key phrase search | `search "rust" in article as hits` |
 | `filter` | Filter list items by a condition | `filter tokens containing "rust" as rust_tokens` |

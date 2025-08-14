@@ -131,6 +131,21 @@ pub enum Statement {
         source: Expression,
         destination: Expression,
     },
+
+    Compare {
+        left: Expression,
+        right: Expression,
+        destination: Expression,
+    },
+    Average {
+        source: Expression,
+        destination: Expression,
+    },
+    CheckNormality {
+        source: Expression,
+        destination: Expression,
+    },
+
     Shapiro {
         column: Expression,
         data: Expression,
@@ -166,6 +181,7 @@ pub enum Statement {
 
         destination: Expression,
     },
+
     Arithmetic {
         op: ArithmeticOp,
         value: Expression,

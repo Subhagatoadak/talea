@@ -135,6 +135,34 @@ fn test_search_tokens() {
 
 #[test]
 
+fn test_compare_tokens() {
+    let tokens = lex("compare a to b as result");
+    assert_eq!(
+        tokens,
+        vec![
+            Token::Compare,
+            Token::Identifier("a".to_string()),
+            Token::To,
+            Token::Identifier("b".to_string()),
+            Token::As,
+            Token::Identifier("result".to_string()),
+            Token::Eof,
+        ]
+    );
+}
+
+#[test]
+fn test_average_tokens() {
+    let tokens = lex("average numbers as avg_result");
+    assert_eq!(
+        tokens,
+        vec![
+            Token::Average,
+            Token::Numbers,
+            Token::As,
+            Token::Identifier("avg_result".to_string()),
+
+
 fn test_regress_tokens() {
     let tokens = lex("regress y using x1, x2 in data as model with openai");
     assert_eq!(
@@ -165,12 +193,25 @@ fn test_shapiro_tokens() {
             Token::Identifier("data".to_string()),
             Token::As,
             Token::Identifier("result".to_string()),
+
             Token::Eof,
         ]
     );
 }
 
 #[test]
+
+fn test_check_normality_tokens() {
+    let tokens = lex("check normality numbers as is_normal");
+    assert_eq!(
+        tokens,
+        vec![
+            Token::Check,
+            Token::Normality,
+            Token::Numbers,
+            Token::As,
+            Token::Identifier("is_normal".to_string()),
+
 fn test_kolmogorov_tokens() {
     let tokens = lex("kolmogorov column height in data as result");
     assert_eq!(

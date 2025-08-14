@@ -124,6 +124,28 @@ fn test_parse_search() {
 
 #[test]
 
+fn test_parse_compare() {
+    let statements = parse("compare a to b as result");
+    assert_eq!(
+        statements[0],
+        Statement::Compare {
+            left: Expression::Identifier("a".to_string()),
+            right: Expression::Identifier("b".to_string()),
+            destination: Expression::Identifier("result".to_string()),
+        }
+    );
+}
+
+#[test]
+fn test_parse_average() {
+    let statements = parse("average numbers as avg_result");
+    assert_eq!(
+        statements[0],
+        Statement::Average {
+            source: Expression::Identifier("numbers".to_string()),
+            destination: Expression::Identifier("avg_result".to_string()),
+
+
 fn test_parse_regress() {
     let statements = parse("regress salary using age, education in data as model");
     assert_eq!(
@@ -158,11 +180,21 @@ fn test_parse_shapiro() {
             column: Expression::Identifier("height".to_string()),
             data: Expression::Identifier("data".to_string()),
             destination: Expression::Identifier("result".to_string()),
+
         }
     );
 }
 
 #[test]
+
+fn test_parse_check_normality() {
+    let statements = parse("check normality numbers as is_normal");
+    assert_eq!(
+        statements[0],
+        Statement::CheckNormality {
+            source: Expression::Identifier("numbers".to_string()),
+            destination: Expression::Identifier("is_normal".to_string()),
+
 fn test_parse_kolmogorov() {
     let statements = parse("kolmogorov column height in data as result");
     assert_eq!(
@@ -171,6 +203,7 @@ fn test_parse_kolmogorov() {
             column: Expression::Identifier("height".to_string()),
             data: Expression::Identifier("data".to_string()),
             destination: Expression::Identifier("result".to_string()),
+
 
 
         }
