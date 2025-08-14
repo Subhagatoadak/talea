@@ -83,12 +83,15 @@ pub enum Token {
     Similarity,
     SemanticSearch,
 
+    Regress,
+
     TTest,
     Anova,
     MedianTest,
 
     Shapiro,
     Kolmogorov,
+
 
     Add,
     Subtract,
@@ -167,6 +170,7 @@ pub enum Token {
     On,
     By,
     With,
+    Using,
     Containing,
     StartingWith,
     EndingWith,
@@ -304,12 +308,16 @@ impl<'a> Lexer<'a> {
             "similarity" => Token::Similarity,
             "semanticsearch" | "semantic_search" => Token::SemanticSearch,
 
+            "regress" => Token::Regress,
+
+
             "ttest" | "t_test" => Token::TTest,
             "anova" => Token::Anova,
             "median_test" | "mediantest" => Token::MedianTest,
 
             "shapiro" => Token::Shapiro,
             "kolmogorov" => Token::Kolmogorov,
+
 
             "add" => Token::Add,
             "subtract" => Token::Subtract,
@@ -357,7 +365,12 @@ impl<'a> Lexer<'a> {
             "into" => Token::Into,
             "on" => Token::On,
             "by" => Token::By,
+
+            "with" => Token::With,
+            "using" => Token::Using,
+
             "with" | "using" => Token::With,
+
             "containing" => Token::Containing,
             "starting_with" => Token::StartingWith,
             "ending_with" => Token::EndingWith,

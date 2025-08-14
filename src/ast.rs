@@ -185,9 +185,18 @@ pub enum Statement {
         source: Expression,
         destination: Expression,
     }, // New
+
+    Regress {
+        target: Expression,
+        features: Vec<Expression>,
+        source: Expression,
+        destination: Expression,
+        with_openai: bool,
+
     Insight {
         source: Expression,
         destination: Expression,
+
     },
     WordCloud {
         source: Expression,

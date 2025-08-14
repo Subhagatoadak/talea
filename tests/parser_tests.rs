@@ -124,6 +124,21 @@ fn test_parse_search() {
 
 #[test]
 
+fn test_parse_regress() {
+    let statements = parse("regress salary using age, education in data as model");
+    assert_eq!(
+        statements[0],
+        Statement::Regress {
+            target: Expression::Identifier("salary".to_string()),
+            features: vec![
+                Expression::Identifier("age".to_string()),
+                Expression::Identifier("education".to_string()),
+            ],
+            source: Expression::Identifier("data".to_string()),
+            destination: Expression::Identifier("model".to_string()),
+            with_openai: false,
+
+
 fn test_parse_ttest() {
     let statements = parse("two sample ttest column score between group1 and group2 as t_result");
     assert_eq!(
@@ -156,6 +171,7 @@ fn test_parse_kolmogorov() {
             column: Expression::Identifier("height".to_string()),
             data: Expression::Identifier("data".to_string()),
             destination: Expression::Identifier("result".to_string()),
+
 
         }
     );

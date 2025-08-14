@@ -26,7 +26,11 @@ impl Parser {
         match self.current_token() {
             Some(Token::Use) => self.parse_use_statement(),
             Some(Token::Summarize) => self.parse_summarize_statement(),
+
+            Some(Token::Regress) => self.parse_regress_statement(),
+
             Some(Token::Insight) => self.parse_insight_statement(),
+
             Some(Token::Lemmatize) => self.parse_lemmatize_statement(),
             Some(Token::Filter) => self.parse_filter_statement(),
             Some(Token::Load) => self.parse_load_statement(),
@@ -762,6 +766,41 @@ impl Parser {
         };
         self.advance();
         Ok(Statement::Use(backend))
+    }
+    fn parse_regress_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let target = self.parse_identifier_expression()?;
+        self.consume(Token::Using)?;
+        let mut features = Vec::new();
+        loop {
+            features.push(self.parse_identifier_expression()?);
+            if let Some(Token::Comma) = self.current_token() {
+                self.advance();
+            } else {
+                break;
+            }
+        }
+        self.consume(Token::In)?;
+        let source = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        let mut with_openai = false;
+        if let Some(Token::With) = self.current_token() {
+            self.advance();
+            if let Some(Token::Identifier(name)) = self.current_token().cloned() {
+                if name.eq_ignore_ascii_case("openai") {
+                    self.advance();
+                    with_openai = true;
+                }
+            }
+        }
+        Ok(Statement::Regress {
+            target,
+            features,
+            source,
+            destination,
+            with_openai,
+        })
     }
     fn parse_summarize_statement(&mut self) -> Result<Statement, String> {
         self.advance();
