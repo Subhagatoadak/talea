@@ -23,6 +23,18 @@ fn test_parse_load() {
 }
 
 #[test]
+fn test_parse_load_csv() {
+    let statements = parse("load csv \"tests/data/sample.csv\" as data");
+    assert_eq!(
+        statements[0],
+        Statement::LoadCsv {
+            path: Expression::StringLiteral("tests/data/sample.csv".to_string()),
+            alias: Expression::Identifier("data".to_string()),
+        }
+    );
+}
+
+#[test]
 fn test_parse_tokenize() {
     let statements = parse("tokenize article as tokens");
     assert_eq!(
@@ -111,6 +123,7 @@ fn test_parse_search() {
 }
 
 #[test]
+
 fn test_parse_ttest() {
     let statements = parse("two sample ttest column score between group1 and group2 as t_result");
     assert_eq!(
@@ -121,6 +134,29 @@ fn test_parse_ttest() {
             group1: Expression::Identifier("group1".to_string()),
             group2: Expression::Identifier("group2".to_string()),
             destination: Expression::Identifier("t_result".to_string()),
+
+fn test_parse_shapiro() {
+    let statements = parse("shapiro column height in data as result");
+    assert_eq!(
+        statements[0],
+        Statement::Shapiro {
+            column: Expression::Identifier("height".to_string()),
+            data: Expression::Identifier("data".to_string()),
+            destination: Expression::Identifier("result".to_string()),
+        }
+    );
+}
+
+#[test]
+fn test_parse_kolmogorov() {
+    let statements = parse("kolmogorov column height in data as result");
+    assert_eq!(
+        statements[0],
+        Statement::Kolmogorov {
+            column: Expression::Identifier("height".to_string()),
+            data: Expression::Identifier("data".to_string()),
+            destination: Expression::Identifier("result".to_string()),
+
         }
     );
 }

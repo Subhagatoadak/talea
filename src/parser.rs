@@ -51,6 +51,7 @@ impl Parser {
             Some(Token::Tag) => self.parse_tag_statement(),
             Some(Token::Translate) => self.parse_translate_statement(),
             Some(Token::Sentiment) => self.parse_sentiment_statement(),
+
             Some(Token::TTest) | Some(Token::Anova) | Some(Token::MedianTest) => {
                 self.parse_stat_test_statement()
             }
@@ -59,6 +60,18 @@ impl Parser {
             {
                 self.parse_stat_test_statement()
             }
+
+
+            Some(Token::Shapiro) => self.parse_shapiro_statement(),
+            Some(Token::Kolmogorov) => self.parse_kolmogorov_statement(),
+
+            Some(Token::Mean) => self.parse_mean_statement(),
+            Some(Token::Median) => self.parse_median_statement(),
+            Some(Token::Mode) => self.parse_mode_statement(),
+            Some(Token::Skewness) => self.parse_skewness_statement(),
+            Some(Token::Kurtosis) => self.parse_kurtosis_statement(),
+
+
             Some(Token::Import) => self.parse_import_statement(),
             Some(Token::Install) => self.parse_install_statement(),
             Some(Token::Call) => self.parse_call_statement(),
@@ -88,10 +101,18 @@ impl Parser {
     // Command Parsers with Context-Aware Logic
     fn parse_load_statement(&mut self) -> Result<Statement, String> {
         self.advance();
-        let source = self.parse_expression()?;
-        self.consume(Token::As)?;
-        let alias = self.parse_identifier_expression()?;
-        Ok(Statement::Load { source, alias })
+        if self.current_token() == Some(&Token::CSV) {
+            self.advance();
+            let path = self.parse_expression()?;
+            self.consume(Token::As)?;
+            let alias = self.parse_identifier_expression()?;
+            Ok(Statement::LoadCsv { path, alias })
+        } else {
+            let source = self.parse_expression()?;
+            self.consume(Token::As)?;
+            let alias = self.parse_identifier_expression()?;
+            Ok(Statement::Load { source, alias })
+        }
     }
 
     fn parse_tokenize_statement(&mut self) -> Result<Statement, String> {
@@ -259,6 +280,7 @@ impl Parser {
         })
     }
 
+
     fn parse_stat_test_statement(&mut self) -> Result<Statement, String> {
         // optional sample descriptor
         let mut sample: Option<String> = None;
@@ -324,6 +346,110 @@ impl Parser {
             }
             _ => Err("Expected statistical test".to_string()),
         }
+
+
+    fn parse_shapiro_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        match self.current_token() {
+            Some(Token::Identifier(s)) if s.eq_ignore_ascii_case("column") => self.advance(),
+            _ => return Err("Expected 'column' after 'shapiro'".to_string()),
+        }
+        let column = self.parse_identifier_expression()?;
+        self.consume(Token::In)?;
+        let data = self.parse_identifier_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Shapiro {
+            column,
+            data,
+
+    fn parse_mean_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let column = self.parse_identifier_expression()?;
+        self.consume(Token::In)?;
+        let source = self.parse_identifier_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Mean {
+            column,
+            source,
+
+            destination,
+        })
+    }
+
+
+    fn parse_kolmogorov_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        match self.current_token() {
+            Some(Token::Identifier(s)) if s.eq_ignore_ascii_case("column") => self.advance(),
+            _ => return Err("Expected 'column' after 'kolmogorov'".to_string()),
+        }
+        let column = self.parse_identifier_expression()?;
+        self.consume(Token::In)?;
+        let data = self.parse_identifier_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Kolmogorov {
+            column,
+            data,
+
+    fn parse_median_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let column = self.parse_identifier_expression()?;
+        self.consume(Token::In)?;
+        let source = self.parse_identifier_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Median {
+            column,
+            source,
+            destination,
+        })
+    }
+
+    fn parse_mode_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let column = self.parse_identifier_expression()?;
+        self.consume(Token::In)?;
+        let source = self.parse_identifier_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Mode {
+            column,
+            source,
+            destination,
+        })
+    }
+
+    fn parse_skewness_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let column = self.parse_identifier_expression()?;
+        self.consume(Token::In)?;
+        let source = self.parse_identifier_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Skewness {
+            column,
+            source,
+            destination,
+        })
+    }
+
+    fn parse_kurtosis_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let column = self.parse_identifier_expression()?;
+        self.consume(Token::In)?;
+        let source = self.parse_identifier_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Kurtosis {
+            column,
+            source,
+
+            destination,
+        })
+
     }
 
     fn parse_count_statement(&mut self) -> Result<Statement, String> {
