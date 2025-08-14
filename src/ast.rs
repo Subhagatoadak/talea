@@ -49,6 +49,10 @@ pub enum Statement {
         source: Expression,
         alias: Expression,
     },
+    LoadCsv {
+        path: Expression,
+        alias: Expression,
+    },
     Save {
         source: Expression,
         destination: Expression,
@@ -127,6 +131,7 @@ pub enum Statement {
         source: Expression,
         destination: Expression,
     },
+
     Compare {
         left: Expression,
         right: Expression,
@@ -140,6 +145,43 @@ pub enum Statement {
         source: Expression,
         destination: Expression,
     },
+
+    Shapiro {
+        column: Expression,
+        data: Expression,
+        destination: Expression,
+    },
+    Kolmogorov {
+        column: Expression,
+        data: Expression,
+
+    Mean {
+        column: Expression,
+        source: Expression,
+        destination: Expression,
+    },
+    Median {
+        column: Expression,
+        source: Expression,
+        destination: Expression,
+    },
+    Mode {
+        column: Expression,
+        source: Expression,
+        destination: Expression,
+    },
+    Skewness {
+        column: Expression,
+        source: Expression,
+        destination: Expression,
+    },
+    Kurtosis {
+        column: Expression,
+        source: Expression,
+
+        destination: Expression,
+    },
+
     Arithmetic {
         op: ArithmeticOp,
         value: Expression,
@@ -159,6 +201,19 @@ pub enum Statement {
         source: Expression,
         destination: Expression,
     }, // New
+
+    Regress {
+        target: Expression,
+        features: Vec<Expression>,
+        source: Expression,
+        destination: Expression,
+        with_openai: bool,
+
+    Insight {
+        source: Expression,
+        destination: Expression,
+
+    },
     WordCloud {
         source: Expression,
         destination: Expression,
@@ -180,6 +235,25 @@ pub enum Statement {
     KeywordSearch {
         query: Expression,
         source: Expression,
+        destination: Expression,
+    },
+    TTest {
+        sample: Option<String>,
+        column: Expression,
+        group1: Expression,
+        group2: Expression,
+        destination: Expression,
+    },
+    Anova {
+        column: Expression,
+        group1: Expression,
+        group2: Expression,
+        destination: Expression,
+    },
+    MedianTest {
+        column: Expression,
+        group1: Expression,
+        group2: Expression,
         destination: Expression,
     },
     Import {

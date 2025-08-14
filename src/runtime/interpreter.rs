@@ -4,7 +4,7 @@ use std::fs;
 
 // FFI Imports
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyList, PyTuple};
+use pyo3::types::{PyAny, PyDict, PyList, PyTuple};
 // FIX: Import the prelude with an alias to avoid name collisions.
 #[cfg(feature = "r")]
 use extendr_api::prelude as r_prelude;
@@ -15,6 +15,7 @@ use crate::ast::{ArithmeticOp, Backend, ComparisonOp, Expression, FilterConditio
 use crate::lexer::Token;
 use crate::openai_pipeline::OpenAiPipeline;
 use crate::runtime::{Environment, TaleaValue};
+use serde_json::Value as JsonValue;
 use std::process::Command;
 
 pub struct Interpreter {
@@ -230,6 +231,7 @@ impl Interpreter {
         Ok(())
     }
 
+
     fn execute_compare_statement(
         &mut self,
         left: &Expression,
@@ -268,6 +270,120 @@ impl Interpreter {
         let _value = self.evaluate_expression(source)?;
         self.environment.define(dest_name, TaleaValue::String("normal".to_string()));
         println!("[Interpreter: Checked normality.]");
+
+    fn execute_ttest_statement(
+        &mut self,
+        _sample: &Option<String>,
+        _column: &Expression,
+        group1: &Expression,
+        group2: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        if !self.active_backends.contains(&Backend::Python) {
+            return Err("TTest requires 'use python'".to_string());
+        }
+        let g1 = self.get_number_list(group1)?;
+        let g2 = self.get_number_list(group2)?;
+        let dest_name = self.get_identifier_name(destination)?;
+        Python::with_gil(|py| -> PyResult<()> {
+            let sys = PyModule::import_bound(py, "sys")?;
+            let sysconfig = PyModule::import_bound(py, "sysconfig")?;
+            let paths = sysconfig.call_method0("get_paths")?;
+            let purelib: String = paths.get_item("purelib")?.extract()?;
+            sys.getattr("path")?.call_method1("append", (purelib,))?;
+            let stats = PyModule::import_bound(py, "scipy.stats")?;
+            let l1 = PyList::new_bound(py, g1);
+            let l2 = PyList::new_bound(py, g2);
+            let res = stats.call_method1("ttest_ind", (&l1, &l2))?;
+            let t_stat: f64 = res.get_item(0)?.extract()?;
+            let p_val: f64 = res.get_item(1)?.extract()?;
+            self.environment.define(
+                dest_name,
+                TaleaValue::Tuple(vec![
+                    TaleaValue::String(t_stat.to_string()),
+                    TaleaValue::String(p_val.to_string()),
+                ]),
+            );
+            Ok(())
+        })
+        .map_err(|e| format!("Python Error: {}", e))?;
+        Ok(())
+    }
+
+    fn execute_anova_statement(
+        &mut self,
+        _column: &Expression,
+        group1: &Expression,
+        group2: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        if !self.active_backends.contains(&Backend::Python) {
+            return Err("ANOVA requires 'use python'".to_string());
+        }
+        let g1 = self.get_number_list(group1)?;
+        let g2 = self.get_number_list(group2)?;
+        let dest_name = self.get_identifier_name(destination)?;
+        Python::with_gil(|py| -> PyResult<()> {
+            let sys = PyModule::import_bound(py, "sys")?;
+            let sysconfig = PyModule::import_bound(py, "sysconfig")?;
+            let paths = sysconfig.call_method0("get_paths")?;
+            let purelib: String = paths.get_item("purelib")?.extract()?;
+            sys.getattr("path")?.call_method1("append", (purelib,))?;
+            let stats = PyModule::import_bound(py, "scipy.stats")?;
+            let l1 = PyList::new_bound(py, g1);
+            let l2 = PyList::new_bound(py, g2);
+            let res = stats.call_method1("f_oneway", (&l1, &l2))?;
+            let f_stat: f64 = res.get_item(0)?.extract()?;
+            let p_val: f64 = res.get_item(1)?.extract()?;
+            self.environment.define(
+                dest_name,
+                TaleaValue::Tuple(vec![
+                    TaleaValue::String(f_stat.to_string()),
+                    TaleaValue::String(p_val.to_string()),
+                ]),
+            );
+            Ok(())
+        })
+        .map_err(|e| format!("Python Error: {}", e))?;
+        Ok(())
+    }
+
+    fn execute_median_test_statement(
+        &mut self,
+        _column: &Expression,
+        group1: &Expression,
+        group2: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        if !self.active_backends.contains(&Backend::Python) {
+            return Err("Median test requires 'use python'".to_string());
+        }
+        let g1 = self.get_number_list(group1)?;
+        let g2 = self.get_number_list(group2)?;
+        let dest_name = self.get_identifier_name(destination)?;
+        Python::with_gil(|py| -> PyResult<()> {
+            let sys = PyModule::import_bound(py, "sys")?;
+            let sysconfig = PyModule::import_bound(py, "sysconfig")?;
+            let paths = sysconfig.call_method0("get_paths")?;
+            let purelib: String = paths.get_item("purelib")?.extract()?;
+            sys.getattr("path")?.call_method1("append", (purelib,))?;
+            let stats = PyModule::import_bound(py, "scipy.stats")?;
+            let l1 = PyList::new_bound(py, g1);
+            let l2 = PyList::new_bound(py, g2);
+            let res = stats.call_method1("median_test", (&l1, &l2))?;
+            let stat: f64 = res.get_item(0)?.extract()?;
+            let p_val: f64 = res.get_item(1)?.extract()?;
+            self.environment.define(
+                dest_name,
+                TaleaValue::Tuple(vec![
+                    TaleaValue::String(stat.to_string()),
+                    TaleaValue::String(p_val.to_string()),
+                ]),
+            );
+            Ok(())
+        })
+        .map_err(|e| format!("Python Error: {}", e))?;
+
         Ok(())
     }
 
@@ -279,6 +395,22 @@ impl Interpreter {
                 source,
                 destination,
             } => self.execute_summarize_statement(source, destination),
+
+            Statement::Regress {
+                target,
+                features,
+                source,
+                destination,
+                with_openai,
+            } => {
+                self.execute_regress_statement(target, features, source, destination, *with_openai)
+            }
+
+            Statement::Insight {
+                source,
+                destination,
+            } => self.execute_insight_statement(source, destination),
+
             Statement::Tag {
                 source,
                 method,
@@ -293,6 +425,44 @@ impl Interpreter {
                 source,
                 destination,
             } => self.execute_sentiment_statement(source, destination),
+
+            Statement::Shapiro {
+                column,
+                data,
+                destination,
+            } => self.execute_shapiro_statement(column, data, destination),
+            Statement::Kolmogorov {
+                column,
+                data,
+                destination,
+            } => self.execute_kolmogorov_statement(column, data, destination),
+
+            Statement::Mean {
+                column,
+                source,
+                destination,
+            } => self.execute_mean_statement(column, source, destination),
+            Statement::Median {
+                column,
+                source,
+                destination,
+            } => self.execute_median_statement(column, source, destination),
+            Statement::Mode {
+                column,
+                source,
+                destination,
+            } => self.execute_mode_statement(column, source, destination),
+            Statement::Skewness {
+                column,
+                source,
+                destination,
+            } => self.execute_skewness_statement(column, source, destination),
+            Statement::Kurtosis {
+                column,
+                source,
+                destination,
+            } => self.execute_kurtosis_statement(column, source, destination),
+
             Statement::Define { name, value } => self.execute_define_statement(name, value),
             Statement::Arithmetic {
                 op,
@@ -301,6 +471,7 @@ impl Interpreter {
                 destination,
             } => self.execute_arithmetic_statement(op, value, target, destination),
             Statement::Load { source, alias } => self.execute_load_statement(source, alias),
+            Statement::LoadCsv { path, alias } => self.execute_load_csv_statement(path, alias),
             Statement::Save {
                 source,
                 destination,
@@ -379,6 +550,7 @@ impl Interpreter {
                 source,
                 destination,
             } => self.execute_keyword_search_statement(query, source, destination),
+
             Statement::Compare {
                 left,
                 right,
@@ -392,6 +564,27 @@ impl Interpreter {
                 source,
                 destination,
             } => self.execute_check_normality_statement(source, destination),
+
+            Statement::TTest {
+                sample,
+                column,
+                group1,
+                group2,
+                destination,
+            } => self.execute_ttest_statement(sample, column, group1, group2, destination),
+            Statement::Anova {
+                column,
+                group1,
+                group2,
+                destination,
+            } => self.execute_anova_statement(column, group1, group2, destination),
+            Statement::MedianTest {
+                column,
+                group1,
+                group2,
+                destination,
+            } => self.execute_median_test_statement(column, group1, group2, destination),
+
             Statement::Concordance {
                 word,
                 source,
@@ -537,6 +730,86 @@ impl Interpreter {
         Ok(())
     }
 
+
+    fn execute_regress_statement(
+        &mut self,
+        target: &Expression,
+        features: &Vec<Expression>,
+        source: &Expression,
+        destination: &Expression,
+        with_openai: bool,
+    ) -> std::result::Result<(), String> {
+        let target_name = self.get_identifier_name(target)?;
+        let feature_names = features
+            .iter()
+            .map(|e| self.get_identifier_name(e))
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        let data_val = self.evaluate_expression(source)?;
+        let csv_content = if let TaleaValue::String(s) = data_val {
+            s
+        } else {
+            return Err("Regression expects the data source to be a CSV string".to_string());
+        };
+        let dest_name = self.get_identifier_name(destination)?;
+
+        let summary = Python::with_gil(|py| -> PyResult<String> {
+            let code = r#"
+import pandas as pd, statsmodels.api as sm, io
+def run_regression(csv, target, features):
+    df = pd.read_csv(io.StringIO(csv))
+    X = sm.add_constant(df[features])
+    y = df[target]
+    model = sm.OLS(y, X).fit()
+    return model.summary().as_text()
+"#;
+            let module = PyModule::from_code_bound(py, code, "regress_mod", "regress_mod")?;
+            let func = module.getattr("run_regression")?;
+            func.call1((csv_content, target_name, feature_names))?
+                .extract()
+        })
+        .map_err(|e| format!("Python error: {}", e))?;
+
+        self.environment
+            .define(dest_name.clone(), TaleaValue::String(summary.clone()));
+        println!(
+            "[Interpreter: Stored regression summary in '{}']",
+            dest_name
+        );
+
+        if with_openai {
+            let prompt = format!(
+                "Interpret the following regression model summary:\n{}",
+                summary
+            );
+            let pipeline = OpenAiPipeline::from_env("gpt-3.5-turbo".to_string())?;
+            let response = pipeline.ask(&prompt)?;
+            println!("[OpenAI Interpretation]\n{}", response);
+        }
+
+
+    fn execute_insight_statement(
+        &mut self,
+        source: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let value = self.evaluate_expression(source)?;
+        let json_val = Interpreter::talea_value_to_json(&value);
+        let serialized =
+            serde_json::to_string(&json_val).map_err(|e| format!("Serialization error: {}", e))?;
+        let prompt = format!(
+            "Provide narrative insights for the following data: {}",
+            serialized
+        );
+        let pipeline = OpenAiPipeline::from_env("gpt-3.5-turbo")?;
+        let response = pipeline.ask(&prompt)?;
+        let dest_name = self.get_identifier_name(destination)?;
+        self.environment
+            .define(dest_name, TaleaValue::String(response.clone()));
+        println!("{}", response);
+
+        Ok(())
+    }
+
     fn execute_tag_statement(
         &mut self,
         source: &Expression,
@@ -670,6 +943,119 @@ impl Interpreter {
         self.environment
             .define(dest_name, TaleaValue::String(sentiment.to_string()));
         println!("[Interpreter: Sentiment analysis complete.]");
+        Ok(())
+    }
+
+    fn compute_statistic(
+        &self,
+        data: &str,
+        column: &str,
+        func: &str,
+    ) -> std::result::Result<f64, String> {
+        Python::with_gil(|py| -> PyResult<f64> {
+            let pandas = PyModule::import_bound(py, "pandas")?;
+            let io = PyModule::import_bound(py, "io")?;
+            let string_io = io.getattr("StringIO")?.call1((data,))?;
+            let df = pandas.getattr("read_csv")?.call1((string_io,))?;
+            let col = df.get_item(column)?;
+            match func {
+                "mean" => col.getattr("mean")?.call0()?.extract::<f64>(),
+                "median" => col.getattr("median")?.call0()?.extract::<f64>(),
+                "mode" => {
+                    let modes = col.getattr("mode")?.call0()?;
+                    modes.get_item(0)?.extract::<f64>()
+                }
+                "skewness" => {
+                    let arr = col.getattr("tolist")?.call0()?;
+                    let stats = PyModule::import_bound(py, "scipy.stats")?;
+                    stats.getattr("skew")?.call1((arr,))?.extract::<f64>()
+                }
+                "kurtosis" => {
+                    let arr = col.getattr("tolist")?.call0()?;
+                    let stats = PyModule::import_bound(py, "scipy.stats")?;
+                    stats
+                        .getattr("kurtosis")?
+                        .call1((arr,))?
+                        .extract::<f64>()
+                }
+                _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>("bad func"))?,
+            }
+        })
+        .map_err(|e| e.to_string())
+    }
+
+    fn execute_mean_statement(
+        &mut self,
+        column: &Expression,
+        source: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let col_name = self.get_identifier_name(column)?;
+        let data = self.get_string_value(source)?;
+        let result = self.compute_statistic(&data, &col_name, "mean")?;
+        let dest_name = self.get_identifier_name(destination)?;
+        self.environment
+            .define(dest_name, TaleaValue::Number(result as i64));
+        Ok(())
+    }
+
+    fn execute_median_statement(
+        &mut self,
+        column: &Expression,
+        source: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let col_name = self.get_identifier_name(column)?;
+        let data = self.get_string_value(source)?;
+        let result = self.compute_statistic(&data, &col_name, "median")?;
+        let dest_name = self.get_identifier_name(destination)?;
+        self.environment
+            .define(dest_name, TaleaValue::Number(result as i64));
+        Ok(())
+    }
+
+    fn execute_mode_statement(
+        &mut self,
+        column: &Expression,
+        source: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let col_name = self.get_identifier_name(column)?;
+        let data = self.get_string_value(source)?;
+        let result = self.compute_statistic(&data, &col_name, "mode")?;
+        let dest_name = self.get_identifier_name(destination)?;
+        self.environment
+            .define(dest_name, TaleaValue::Number(result as i64));
+        Ok(())
+    }
+
+    fn execute_skewness_statement(
+        &mut self,
+        column: &Expression,
+        source: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let col_name = self.get_identifier_name(column)?;
+        let data = self.get_string_value(source)?;
+        let result = self.compute_statistic(&data, &col_name, "skewness")?;
+        let dest_name = self.get_identifier_name(destination)?;
+        self.environment
+            .define(dest_name, TaleaValue::Number(result as i64));
+        Ok(())
+    }
+
+    fn execute_kurtosis_statement(
+        &mut self,
+        column: &Expression,
+        source: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let col_name = self.get_identifier_name(column)?;
+        let data = self.get_string_value(source)?;
+        let result = self.compute_statistic(&data, &col_name, "kurtosis")?;
+        let dest_name = self.get_identifier_name(destination)?;
+        self.environment
+            .define(dest_name, TaleaValue::Number(result as i64));
         Ok(())
     }
 
@@ -1145,6 +1531,52 @@ impl Interpreter {
             .define(var_name, TaleaValue::String(file_content));
         Ok(())
     }
+
+    fn execute_load_csv_statement(
+        &mut self,
+        path: &Expression,
+        alias: &Expression,
+    ) -> std::result::Result<(), String> {
+        if !self.active_backends.contains(&Backend::Python) {
+            return Err("Python backend not enabled. Run 'use python' first.".to_string());
+        }
+        let var_name = self.get_identifier_name(alias)?;
+        let raw_path = self.get_string_value(path)?;
+        let expanded_path_cow = shellexpand::tilde(&raw_path);
+        let file_path = std::path::PathBuf::from(expanded_path_cow.as_ref());
+        let path_str = file_path
+            .to_str()
+            .ok_or_else(|| "Invalid file path".to_string())?
+            .to_string();
+
+        let rows = Python::with_gil(|py| -> PyResult<Vec<HashMap<String, TaleaValue>>> {
+            let pandas = PyModule::import_bound(py, "pandas")?;
+            let df = pandas.getattr("read_csv")?.call1((path_str.clone(),))?;
+            let records = df.call_method1("to_dict", ("records",))?;
+            let list = records.downcast::<PyList>()?;
+            let mut out = Vec::new();
+            for item in list.iter() {
+                let dict = item.downcast::<PyDict>()?;
+                let mut map: HashMap<String, TaleaValue> = HashMap::new();
+                for (k, v) in dict.iter() {
+                    let key: String = k.extract()?;
+                    let val = Interpreter::py_obj_to_talea(v);
+                    map.insert(key, val);
+                }
+                out.push(map);
+            }
+            Ok(out)
+        })
+        .map_err(|e| format!("Python Error: {}", e))?;
+
+        println!(
+            "[Interpreter: Loaded table with {} rows from '{}']",
+            rows.len(),
+            file_path.display()
+        );
+        self.environment.define(var_name, TaleaValue::Table(rows));
+        Ok(())
+    }
     fn execute_tokenize_statement(
         &mut self,
         source: &Expression,
@@ -1571,7 +2003,32 @@ impl Interpreter {
         expression: &Expression,
     ) -> std::result::Result<(), String> {
         let value = self.evaluate_expression(expression)?;
-        println!("{}", value.to_string());
+        match value {
+            TaleaValue::Table(rows) => {
+                if rows.is_empty() {
+                    println!("<empty table>");
+                } else {
+                    let mut cols: Vec<String> = rows[0].keys().cloned().collect();
+                    cols.sort();
+                    println!("{}", cols.join("\t"));
+                    for row in rows.iter().take(5) {
+                        let mut vals = Vec::new();
+                        for col in &cols {
+                            let cell = row
+                                .get(col)
+                                .map(|v| v.to_string())
+                                .unwrap_or_else(|| "null".to_string());
+                            vals.push(cell);
+                        }
+                        println!("{}", vals.join("\t"));
+                    }
+                    if rows.len() > 5 {
+                        println!("... ({} more rows)", rows.len() - 5);
+                    }
+                }
+            }
+            other => println!("{}", other.to_string()),
+        }
         Ok(())
     }
     fn evaluate_expression(
@@ -1629,6 +2086,62 @@ impl Interpreter {
             }
         }
     }
+    fn execute_shapiro_statement(
+        &mut self,
+        column: &Expression,
+        data: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        if !self.active_backends.contains(&Backend::Python) {
+            return Err("Shapiro test requires 'use python' first.".to_string());
+        }
+        let dest_name = self.get_identifier_name(destination)?;
+        let values = self.get_column_values(column, data)?;
+        Python::with_gil(|py| -> PyResult<()> {
+            let stats = PyModule::import_bound(py, "scipy.stats")?;
+            let arr = PyList::new_bound(py, &values);
+            let res = stats.call_method1("shapiro", (arr,))?;
+            let stat: f64 = res.get_item(0)?.extract()?;
+            let p: f64 = res.get_item(1)?.extract()?;
+            self.environment.define(
+                dest_name,
+                TaleaValue::Tuple(vec![TaleaValue::Float(stat), TaleaValue::Float(p)]),
+            );
+            Ok(())
+        })
+        .map_err(|e| format!("Python Error: {}", e))?;
+        println!("[Interpreter: Shapiro-Wilk test complete.]");
+        Ok(())
+    }
+
+    fn execute_kolmogorov_statement(
+        &mut self,
+        column: &Expression,
+        data: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        if !self.active_backends.contains(&Backend::Python) {
+            return Err("Kolmogorov test requires 'use python' first.".to_string());
+        }
+        let dest_name = self.get_identifier_name(destination)?;
+        let values = self.get_column_values(column, data)?;
+        Python::with_gil(|py| -> PyResult<()> {
+            let stats = PyModule::import_bound(py, "scipy.stats")?;
+            let arr = PyList::new_bound(py, &values);
+            let res = stats.call_method1("kstest", (arr, "norm"))?;
+            let stat: f64 = res.get_item(0)?.extract()?;
+            let p: f64 = res.get_item(1)?.extract()?;
+            self.environment.define(
+                dest_name,
+                TaleaValue::Tuple(vec![TaleaValue::Float(stat), TaleaValue::Float(p)]),
+            );
+            Ok(())
+        })
+        .map_err(|e| format!("Python Error: {}", e))?;
+        println!("[Interpreter: Kolmogorov-Smirnov test complete.]");
+        Ok(())
+    }
+
     fn get_identifier_name(&self, expression: &Expression) -> std::result::Result<String, String> {
         if let Expression::Identifier(name) = expression {
             Ok(name.clone())
@@ -1644,6 +2157,85 @@ impl Interpreter {
         }
     }
 
+
+    fn get_number_list(
+        &mut self,
+        expression: &Expression,
+    ) -> std::result::Result<Vec<f64>, String> {
+        match self.evaluate_expression(expression)? {
+            TaleaValue::List(list) => {
+                let mut out = Vec::new();
+                for item in list {
+                    match item {
+                        TaleaValue::Number(n) => out.push(n as f64),
+                        TaleaValue::String(s) => out.push(
+                            s.parse::<f64>()
+                                .map_err(|_| "Expected numeric value".to_string())?,
+                        ),
+                        _ => return Err("Expected list of numbers".to_string()),
+                    }
+                }
+                Ok(out)
+            }
+            _ => Err("Expected a list of numbers".to_string()),
+        }
+
+    fn get_column_values(
+        &mut self,
+        column: &Expression,
+        data: &Expression,
+    ) -> std::result::Result<Vec<f64>, String> {
+        let col_name = self.get_identifier_name(column)?;
+        let data_val = self.evaluate_expression(data)?;
+        if let TaleaValue::List(entries) = data_val {
+            for entry in entries {
+                match entry {
+                    TaleaValue::List(pair) if pair.len() == 2 => {
+                        if let TaleaValue::String(name) = &pair[0] {
+                            if name == &col_name {
+                                if let TaleaValue::List(vals) = &pair[1] {
+                                    let mut nums = Vec::new();
+                                    for v in vals {
+                                        match v {
+                                            TaleaValue::Number(n) => nums.push(*n as f64),
+                                            TaleaValue::Float(f) => nums.push(*f),
+                                            _ => {
+                                                return Err("Column values must be numbers".to_string())
+                                            }
+                                        }
+                                    }
+                                    return Ok(nums);
+                                }
+                            }
+                        }
+                    }
+                    TaleaValue::Tuple(pair) if pair.len() == 2 => {
+                        if let TaleaValue::String(name) = &pair[0] {
+                            if name == &col_name {
+                                if let TaleaValue::List(vals) = &pair[1] {
+                                    let mut nums = Vec::new();
+                                    for v in vals {
+                                        match v {
+                                            TaleaValue::Number(n) => nums.push(*n as f64),
+                                            TaleaValue::Float(f) => nums.push(*f),
+                                            _ => {
+                                                return Err("Column values must be numbers".to_string())
+                                            }
+                                        }
+                                    }
+                                    return Ok(nums);
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        Err(format!("Column '{}' not found", col_name))
+
+    }
+
     fn execute_if_statement(
         &mut self,
         condition: &Expression,
@@ -1653,9 +2245,11 @@ impl Interpreter {
         let cond_val = self.evaluate_expression(condition)?;
         let truthy = match cond_val {
             TaleaValue::Number(n) => n != 0,
+            TaleaValue::Float(f) => f != 0.0,
             TaleaValue::String(ref s) => !s.is_empty(),
             TaleaValue::List(ref l) => !l.is_empty(),
             TaleaValue::Tuple(ref t) => !t.is_empty(),
+            TaleaValue::Table(ref rows) => !rows.is_empty(),
             TaleaValue::Unit(_) => true,
             TaleaValue::Null => false,
         };
@@ -1715,6 +2309,19 @@ impl Interpreter {
                     .collect();
                 PyList::new_bound(py, items).into_py(py)
             }
+            TaleaValue::Table(rows) => {
+                let py_rows: Vec<PyObject> = rows
+                    .iter()
+                    .map(|row| {
+                        let dict = PyDict::new_bound(py);
+                        for (k, v) in row {
+                            let _ = dict.set_item(k, Interpreter::talea_value_to_py(py, v));
+                        }
+                        dict.into_py(py)
+                    })
+                    .collect();
+                PyList::new_bound(py, py_rows).into_py(py)
+            }
             _ => py.None(),
         }
     }
@@ -1734,6 +2341,20 @@ impl Interpreter {
             TaleaValue::List(vals)
         } else {
             TaleaValue::Null
+        }
+    }
+
+    fn talea_value_to_json(value: &TaleaValue) -> JsonValue {
+        match value {
+            TaleaValue::String(s) => JsonValue::String(s.clone()),
+            TaleaValue::Number(n) => JsonValue::Number((*n).into()),
+            TaleaValue::List(l) | TaleaValue::Tuple(l) => JsonValue::Array(
+                l.iter()
+                    .map(|v| Interpreter::talea_value_to_json(v))
+                    .collect(),
+            ),
+            TaleaValue::Unit(t) => JsonValue::String(format!("{:?}", t)),
+            TaleaValue::Null => JsonValue::Null,
         }
     }
 
@@ -1790,6 +2411,7 @@ impl ToString for TaleaValue {
         match self {
             TaleaValue::String(s) => s.clone(),
             TaleaValue::Number(n) => n.to_string(),
+            TaleaValue::Float(f) => f.to_string(),
             TaleaValue::List(l) => {
                 let items: Vec<String> = l.iter().map(|val| val.to_string_for_list()).collect();
                 format!("[List with {} items]:\n[{}]", l.len(), items.join(", "))
@@ -1797,6 +2419,9 @@ impl ToString for TaleaValue {
             TaleaValue::Tuple(t) => {
                 let items: Vec<String> = t.iter().map(|val| val.to_string_for_list()).collect();
                 format!("({})", items.join(", "))
+            }
+            TaleaValue::Table(rows) => {
+                format!("<Table with {} rows>", rows.len())
             }
             TaleaValue::Unit(t) => format!("Unit: {:?}", t),
             TaleaValue::Null => "null".to_string(),
