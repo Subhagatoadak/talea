@@ -334,9 +334,11 @@ macOS `.app` and DMG disk image.
 scripts/build_dmg.sh
 ```
 
-The script writes `dist/Talea-<version>.dmg` containing the core
-application. If the `examples/` directory is present it is archived as
-`Talea-examples.tar.gz` for an optional download.
+The script installs the IDE's npm dependencies if necessary, builds the
+Tauri application, and on macOS opens the bundled Talea IDE so the
+interpreter is immediately available. The resulting `dist/Talea-<version>.dmg`
+contains the core application. If the `examples/` directory is present it
+is archived as `Talea-examples.tar.gz` for an optional download.
 
 ## ❤️ Contributing
 
