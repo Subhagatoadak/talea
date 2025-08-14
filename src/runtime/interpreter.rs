@@ -230,6 +230,121 @@ impl Interpreter {
         Ok(())
     }
 
+    fn execute_ttest_statement(
+        &mut self,
+        _sample: &Option<String>,
+        _column: &Expression,
+        group1: &Expression,
+        group2: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        if !self.active_backends.contains(&Backend::Python) {
+            return Err("TTest requires 'use python'".to_string());
+        }
+        let g1 = self.get_number_list(group1)?;
+        let g2 = self.get_number_list(group2)?;
+        let dest_name = self.get_identifier_name(destination)?;
+        Python::with_gil(|py| -> PyResult<()> {
+            let sys = PyModule::import_bound(py, "sys")?;
+            let sysconfig = PyModule::import_bound(py, "sysconfig")?;
+            let paths = sysconfig.call_method0("get_paths")?;
+            let purelib: String = paths.get_item("purelib")?.extract()?;
+            sys.getattr("path")?.call_method1("append", (purelib,))?;
+            let stats = PyModule::import_bound(py, "scipy.stats")?;
+            let l1 = PyList::new_bound(py, g1);
+            let l2 = PyList::new_bound(py, g2);
+            let res = stats.call_method1("ttest_ind", (&l1, &l2))?;
+            let t_stat: f64 = res.get_item(0)?.extract()?;
+            let p_val: f64 = res.get_item(1)?.extract()?;
+            self.environment.define(
+                dest_name,
+                TaleaValue::Tuple(vec![
+                    TaleaValue::String(t_stat.to_string()),
+                    TaleaValue::String(p_val.to_string()),
+                ]),
+            );
+            Ok(())
+        })
+        .map_err(|e| format!("Python Error: {}", e))?;
+        Ok(())
+    }
+
+    fn execute_anova_statement(
+        &mut self,
+        _column: &Expression,
+        group1: &Expression,
+        group2: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        if !self.active_backends.contains(&Backend::Python) {
+            return Err("ANOVA requires 'use python'".to_string());
+        }
+        let g1 = self.get_number_list(group1)?;
+        let g2 = self.get_number_list(group2)?;
+        let dest_name = self.get_identifier_name(destination)?;
+        Python::with_gil(|py| -> PyResult<()> {
+            let sys = PyModule::import_bound(py, "sys")?;
+            let sysconfig = PyModule::import_bound(py, "sysconfig")?;
+            let paths = sysconfig.call_method0("get_paths")?;
+            let purelib: String = paths.get_item("purelib")?.extract()?;
+            sys.getattr("path")?.call_method1("append", (purelib,))?;
+            let stats = PyModule::import_bound(py, "scipy.stats")?;
+            let l1 = PyList::new_bound(py, g1);
+            let l2 = PyList::new_bound(py, g2);
+            let res = stats.call_method1("f_oneway", (&l1, &l2))?;
+            let f_stat: f64 = res.get_item(0)?.extract()?;
+            let p_val: f64 = res.get_item(1)?.extract()?;
+            self.environment.define(
+                dest_name,
+                TaleaValue::Tuple(vec![
+                    TaleaValue::String(f_stat.to_string()),
+                    TaleaValue::String(p_val.to_string()),
+                ]),
+            );
+            Ok(())
+        })
+        .map_err(|e| format!("Python Error: {}", e))?;
+        Ok(())
+    }
+
+    fn execute_median_test_statement(
+        &mut self,
+        _column: &Expression,
+        group1: &Expression,
+        group2: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        if !self.active_backends.contains(&Backend::Python) {
+            return Err("Median test requires 'use python'".to_string());
+        }
+        let g1 = self.get_number_list(group1)?;
+        let g2 = self.get_number_list(group2)?;
+        let dest_name = self.get_identifier_name(destination)?;
+        Python::with_gil(|py| -> PyResult<()> {
+            let sys = PyModule::import_bound(py, "sys")?;
+            let sysconfig = PyModule::import_bound(py, "sysconfig")?;
+            let paths = sysconfig.call_method0("get_paths")?;
+            let purelib: String = paths.get_item("purelib")?.extract()?;
+            sys.getattr("path")?.call_method1("append", (purelib,))?;
+            let stats = PyModule::import_bound(py, "scipy.stats")?;
+            let l1 = PyList::new_bound(py, g1);
+            let l2 = PyList::new_bound(py, g2);
+            let res = stats.call_method1("median_test", (&l1, &l2))?;
+            let stat: f64 = res.get_item(0)?.extract()?;
+            let p_val: f64 = res.get_item(1)?.extract()?;
+            self.environment.define(
+                dest_name,
+                TaleaValue::Tuple(vec![
+                    TaleaValue::String(stat.to_string()),
+                    TaleaValue::String(p_val.to_string()),
+                ]),
+            );
+            Ok(())
+        })
+        .map_err(|e| format!("Python Error: {}", e))?;
+        Ok(())
+    }
+
     fn execute_statement(&mut self, statement: &Statement) -> std::result::Result<(), String> {
         match statement {
             Statement::Use(backend) => self.execute_use_statement(backend),
@@ -338,6 +453,25 @@ impl Interpreter {
                 source,
                 destination,
             } => self.execute_keyword_search_statement(query, source, destination),
+            Statement::TTest {
+                sample,
+                column,
+                group1,
+                group2,
+                destination,
+            } => self.execute_ttest_statement(sample, column, group1, group2, destination),
+            Statement::Anova {
+                column,
+                group1,
+                group2,
+                destination,
+            } => self.execute_anova_statement(column, group1, group2, destination),
+            Statement::MedianTest {
+                column,
+                group1,
+                group2,
+                destination,
+            } => self.execute_median_test_statement(column, group1, group2, destination),
             Statement::Concordance {
                 word,
                 source,
@@ -1587,6 +1721,29 @@ impl Interpreter {
             Ok(s)
         } else {
             Err("Expected a string value".to_string())
+        }
+    }
+
+    fn get_number_list(
+        &mut self,
+        expression: &Expression,
+    ) -> std::result::Result<Vec<f64>, String> {
+        match self.evaluate_expression(expression)? {
+            TaleaValue::List(list) => {
+                let mut out = Vec::new();
+                for item in list {
+                    match item {
+                        TaleaValue::Number(n) => out.push(n as f64),
+                        TaleaValue::String(s) => out.push(
+                            s.parse::<f64>()
+                                .map_err(|_| "Expected numeric value".to_string())?,
+                        ),
+                        _ => return Err("Expected list of numbers".to_string()),
+                    }
+                }
+                Ok(out)
+            }
+            _ => Err("Expected a list of numbers".to_string()),
         }
     }
 
