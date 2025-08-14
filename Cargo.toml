@@ -50,6 +50,7 @@ copyright = "Copyright (c) Your Name 2025. All rights reserved."
 category = "public.app-category.education"
 short_description = "A plain-language NLP environment for the humanities."
 resources = ["target/release/python-embedded"]
+signing_identity = "-"
 
 # Metadata for creating the Windows .msi installer
 [package.metadata.wix]

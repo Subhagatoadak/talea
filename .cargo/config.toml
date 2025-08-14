@@ -8,3 +8,7 @@ rustflags = [
     # Flag 2: Embeds the library path into the final executable for runtime
     "-C", "link-arg=-Wl,-rpath,/opt/anaconda3/envs/talea-nlp/lib"
 ]
+
+[env]
+# Use the system Python by default to avoid network downloads during build.
+TALEA_USE_SYSTEM_PYTHON = "1"
