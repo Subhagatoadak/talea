@@ -157,6 +157,8 @@ Here is a sample session demonstrating some of Talea's capabilities.
 
 ### Importing Python and R Libraries
 
+> **Note:** R support requires building Talea with the `r` feature. Run `cargo run --features r` (or `cargo build --features r`) to enable it.
+
 You can load external packages or scripts and call their functions directly:
 
 ```talea
