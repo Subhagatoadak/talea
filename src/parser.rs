@@ -42,6 +42,11 @@ impl Parser {
             Some(Token::Uppercase) => self.parse_uppercase_statement(),
             Some(Token::Stem) => self.parse_stem_statement(),
             Some(Token::Count) => self.parse_count_statement(),
+            Some(Token::WordCloud) => self.parse_wordcloud_statement(),
+            Some(Token::Association) => self.parse_association_statement(),
+            Some(Token::Similarity) => self.parse_similarity_statement(),
+            Some(Token::SemanticSearch) => self.parse_semantic_search_statement(),
+            Some(Token::Search) => self.parse_search_statement(),
             Some(Token::Concordance) | Some(Token::KWIC) => self.parse_concordance_statement(),
             Some(Token::Tag) => self.parse_tag_statement(),
             Some(Token::Translate) => self.parse_translate_statement(),
@@ -255,6 +260,70 @@ impl Parser {
         let destination = self.parse_identifier_expression()?;
         Ok(Statement::Count {
             unit,
+            source,
+            destination,
+        })
+    }
+
+    fn parse_wordcloud_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let source = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::WordCloud {
+            source,
+            destination,
+        })
+    }
+
+    fn parse_association_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let source = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::WordAssociation {
+            source,
+            destination,
+        })
+    }
+
+    fn parse_similarity_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let text1 = self.parse_expression()?;
+        self.consume(Token::To)?;
+        let text2 = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::SemanticSimilarity {
+            text1,
+            text2,
+            destination,
+        })
+    }
+
+    fn parse_semantic_search_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let query = self.parse_expression()?;
+        self.consume(Token::In)?;
+        let source = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::SemanticSearch {
+            query,
+            source,
+            destination,
+        })
+    }
+
+    fn parse_search_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let query = self.parse_expression()?;
+        self.consume(Token::In)?;
+        let source = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::KeywordSearch {
+            query,
             source,
             destination,
         })

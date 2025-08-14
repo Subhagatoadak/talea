@@ -21,6 +21,11 @@
 | `summarize` | Summarize text | `summarize article as summary` |
 | `translate` | Translate text to another language | `translate article to "spanish" as es_article` |
 | `sentiment` | Analyze sentiment of text | `sentiment article as mood` |
+| `wordcloud` | Generate word frequency list | `wordcloud article as cloud` |
+| `association` | Analyze word associations | `association tokens as pairs` |
+| `similarity` | Measure semantic similarity between texts | `similarity text1 to text2 as score` |
+| `semanticsearch` | Search documents by semantic similarity | `semanticsearch "rust" in docs as results` |
+| `search` | Keyword or key phrase search | `search "rust" in article as hits` |
 | `filter` | Filter list items by a condition | `filter tokens containing "rust" as rust_tokens` |
 | `define` | Create a variable | `define threshold as 10` |
 | `set environment variable` | Set an OS environment variable | `set environment variable API_KEY to "123"` |

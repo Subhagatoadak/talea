@@ -59,6 +59,177 @@ impl Interpreter {
         Ok(())
     }
 
+    fn execute_wordcloud_statement(
+        &mut self,
+        source: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let source_val = self.evaluate_expression(source)?;
+        let dest_name = self.get_identifier_name(destination)?;
+        let tokens = match source_val {
+            TaleaValue::String(s) => s
+                .split_whitespace()
+                .map(|w| w.to_lowercase())
+                .collect::<Vec<_>>(),
+            TaleaValue::List(l) => {
+                let mut out = Vec::new();
+                for v in l {
+                    if let TaleaValue::String(s) = v {
+                        out.push(s.to_lowercase());
+                    }
+                }
+                out
+            }
+            _ => return Err("Wordcloud can only be applied to text or list of strings".to_string()),
+        };
+        let mut counts: HashMap<String, i64> = HashMap::new();
+        for t in tokens {
+            *counts.entry(t).or_insert(0) += 1;
+        }
+        let mut pairs: Vec<(String, i64)> = counts.into_iter().collect();
+        pairs.sort_by(|a, b| b.1.cmp(&a.1));
+        let result = pairs
+            .into_iter()
+            .map(|(w, c)| TaleaValue::Tuple(vec![TaleaValue::String(w), TaleaValue::Number(c)]))
+            .collect();
+        self.environment.define(dest_name, TaleaValue::List(result));
+        Ok(())
+    }
+
+    fn execute_word_association_statement(
+        &mut self,
+        source: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let source_val = self.evaluate_expression(source)?;
+        let dest_name = self.get_identifier_name(destination)?;
+        let tokens = match source_val {
+            TaleaValue::String(s) => s
+                .split_whitespace()
+                .map(|w| w.to_lowercase())
+                .collect::<Vec<_>>(),
+            TaleaValue::List(l) => {
+                let mut out = Vec::new();
+                for v in l {
+                    if let TaleaValue::String(s) = v {
+                        out.push(s.to_lowercase());
+                    }
+                }
+                out
+            }
+            _ => {
+                return Err(
+                    "Association analysis can only be applied to text or list of strings"
+                        .to_string(),
+                );
+            }
+        };
+        let mut counts: HashMap<(String, String), i64> = HashMap::new();
+        for pair in tokens.windows(2) {
+            if let [a, b] = &pair {
+                *counts.entry((a.clone(), b.clone())).or_insert(0) += 1;
+            }
+        }
+        let mut pairs: Vec<((String, String), i64)> = counts.into_iter().collect();
+        pairs.sort_by(|a, b| b.1.cmp(&a.1));
+        let result = pairs
+            .into_iter()
+            .map(|((a, b), c)| {
+                TaleaValue::Tuple(vec![
+                    TaleaValue::String(a),
+                    TaleaValue::String(b),
+                    TaleaValue::Number(c),
+                ])
+            })
+            .collect();
+        self.environment.define(dest_name, TaleaValue::List(result));
+        Ok(())
+    }
+
+    fn execute_semantic_similarity_statement(
+        &mut self,
+        text1: &Expression,
+        text2: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let s1 = self.get_string_value(text1)?;
+        let s2 = self.get_string_value(text2)?;
+        let set1: HashSet<String> = s1.split_whitespace().map(|w| w.to_lowercase()).collect();
+        let set2: HashSet<String> = s2.split_whitespace().map(|w| w.to_lowercase()).collect();
+        let inter = set1.intersection(&set2).count() as i64;
+        let union = set1.union(&set2).count().max(1) as i64;
+        let score = inter * 100 / union;
+        let dest_name = self.get_identifier_name(destination)?;
+        self.environment
+            .define(dest_name, TaleaValue::Number(score));
+        Ok(())
+    }
+
+    fn execute_semantic_search_statement(
+        &mut self,
+        query: &Expression,
+        source: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let query_str = self.get_string_value(query)?;
+        let query_set: HashSet<String> = query_str
+            .split_whitespace()
+            .map(|w| w.to_lowercase())
+            .collect();
+        let source_val = self.evaluate_expression(source)?;
+        let docs = match source_val {
+            TaleaValue::List(l) => {
+                let mut docs_vec = Vec::new();
+                for item in l {
+                    if let TaleaValue::String(s) = item {
+                        docs_vec.push(s);
+                    } else {
+                        return Err("Semantic search expects a list of strings".to_string());
+                    }
+                }
+                docs_vec
+            }
+            _ => return Err("Semantic search expects a list of strings".to_string()),
+        };
+        let mut results: Vec<(i64, i64)> = Vec::new();
+        for (idx, doc) in docs.iter().enumerate() {
+            let doc_set: HashSet<String> =
+                doc.split_whitespace().map(|w| w.to_lowercase()).collect();
+            let inter = query_set.intersection(&doc_set).count() as i64;
+            let union = query_set.union(&doc_set).count().max(1) as i64;
+            let score = inter * 100 / union;
+            results.push((idx as i64, score));
+        }
+        results.sort_by(|a, b| b.1.cmp(&a.1));
+        let list = results
+            .into_iter()
+            .map(|(i, s)| TaleaValue::Tuple(vec![TaleaValue::Number(i), TaleaValue::Number(s)]))
+            .collect();
+        let dest_name = self.get_identifier_name(destination)?;
+        self.environment.define(dest_name, TaleaValue::List(list));
+        Ok(())
+    }
+
+    fn execute_keyword_search_statement(
+        &mut self,
+        query: &Expression,
+        source: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let target = self.get_string_value(query)?.to_lowercase();
+        let text = self.get_string_value(source)?;
+        let dest_name = self.get_identifier_name(destination)?;
+        let sentences: Vec<TaleaValue> = text
+            .split(|c| c == '.' || c == '!' || c == '?' || c == '\n')
+            .map(|s| s.trim().to_string())
+            .filter(|s| s.to_lowercase().contains(&target))
+            .map(TaleaValue::String)
+            .collect();
+        self.environment
+            .define(dest_name, TaleaValue::List(sentences));
+        Ok(())
+    }
+
     fn execute_statement(&mut self, statement: &Statement) -> std::result::Result<(), String> {
         match statement {
             Statement::Use(backend) => self.execute_use_statement(backend),
@@ -144,6 +315,29 @@ impl Interpreter {
                 source,
                 destination,
             } => self.execute_count_statement(unit, source, destination),
+            Statement::WordCloud {
+                source,
+                destination,
+            } => self.execute_wordcloud_statement(source, destination),
+            Statement::WordAssociation {
+                source,
+                destination,
+            } => self.execute_word_association_statement(source, destination),
+            Statement::SemanticSimilarity {
+                text1,
+                text2,
+                destination,
+            } => self.execute_semantic_similarity_statement(text1, text2, destination),
+            Statement::SemanticSearch {
+                query,
+                source,
+                destination,
+            } => self.execute_semantic_search_statement(query, source, destination),
+            Statement::KeywordSearch {
+                query,
+                source,
+                destination,
+            } => self.execute_keyword_search_statement(query, source, destination),
             Statement::Concordance {
                 word,
                 source,
