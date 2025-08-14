@@ -1347,35 +1347,40 @@ def run_regression(csv, target, features):
         match self.libraries.get(&lib_name) {
             Some(Library::Python(module)) => {
                 let result = Python::with_gil(|py| -> PyResult<TaleaValue> {
-                    let mut current: pyo3::Bound<'_, PyAny> = module.bind(py).clone().into_any();
-                    for attr_name in func_name.split('.') {
-                        current = current.getattr(attr_name)?;
-                    }
+                    let locals = PyDict::new_bound(py);
+                    locals.set_item("module", module.bind(py).clone())?;
+                    locals.set_item("func_path", func_name.as_str())?;
                     let py_args: Vec<PyObject> = positional
                         .iter()
                         .map(|v| Interpreter::talea_value_to_py(py, v))
                         .collect();
-                    if current.is_callable() {
-                        let args_tuple = PyTuple::new_bound(py, py_args);
-                        if !keyword.is_empty() {
-                            let kwargs = PyDict::new_bound(py);
-                            for (k, v) in &keyword {
-                                kwargs.set_item(k, Interpreter::talea_value_to_py(py, v))?;
-                            }
-                            let res = current.call(args_tuple, Some(&kwargs))?;
-                            Ok(Interpreter::py_obj_to_talea(res, false))
-                        } else {
-                            let res = current.call1(args_tuple)?;
-                            Ok(Interpreter::py_obj_to_talea(res, false))
-                        }
-                    } else {
-                        if !py_args.is_empty() || !keyword.is_empty() {
-                            return Err(pyo3::exceptions::PyTypeError::new_err(
-                                "Tried to call non-callable attribute with arguments",
-                            ));
-                        }
-                        Ok(Interpreter::py_obj_to_talea(current, false))
+                    locals.set_item("args", PyTuple::new_bound(py, py_args))?;
+                    let kwargs = PyDict::new_bound(py);
+                    for (k, v) in &keyword {
+                        kwargs.set_item(k, Interpreter::talea_value_to_py(py, v))?;
                     }
+                    locals.set_item("kwargs", kwargs)?;
+                    py.run_bound(
+                        r#"
+def _talea_outer(module, func_path, args, kwargs):
+    def _talea_inner():
+        current = module
+        for attr_name in func_path.split('.'):
+            current = getattr(current, attr_name)
+        if callable(current):
+            return current(*args, **kwargs)
+        if len(args) != 0 or len(kwargs) != 0:
+            raise TypeError("Tried to call non-callable attribute with arguments")
+        return current
+    return _talea_inner()
+result = _talea_outer(module, func_path, args, kwargs)
+"#,
+                        None,
+                        Some(&locals),
+                    )?;
+                    let res: pyo3::Bound<'_, PyAny> =
+                        locals.get_item("result")?.expect("result missing").clone();
+                    Ok(Interpreter::py_obj_to_talea(res, false))
                 })
                 .map_err(|e| format!("Python Error: {}", e))?;
                 self.environment.define(dest_name, result);
@@ -1415,35 +1420,40 @@ def run_regression(csv, target, features):
             None => {
                 if let Some(TaleaValue::PyObject(obj)) = self.environment.get(&lib_name) {
                     let result = Python::with_gil(|py| -> PyResult<TaleaValue> {
-                        let mut current: pyo3::Bound<'_, PyAny> = obj.bind(py).clone();
-                        for attr_name in func_name.split('.') {
-                            current = current.getattr(attr_name)?;
-                        }
+                        let locals = PyDict::new_bound(py);
+                        locals.set_item("module", obj.bind(py).clone())?;
+                        locals.set_item("func_path", func_name.as_str())?;
                         let py_args: Vec<PyObject> = positional
                             .iter()
                             .map(|v| Interpreter::talea_value_to_py(py, v))
                             .collect();
-                        if current.is_callable() {
-                            let args_tuple = PyTuple::new_bound(py, py_args);
-                            if !keyword.is_empty() {
-                                let kwargs = PyDict::new_bound(py);
-                                for (k, v) in &keyword {
-                                    kwargs.set_item(k, Interpreter::talea_value_to_py(py, v))?;
-                                }
-                                let res = current.call(args_tuple, Some(&kwargs))?;
-                                Ok(Interpreter::py_obj_to_talea(res, false))
-                            } else {
-                                let res = current.call1(args_tuple)?;
-                                Ok(Interpreter::py_obj_to_talea(res, false))
-                            }
-                        } else {
-                            if !py_args.is_empty() || !keyword.is_empty() {
-                                return Err(pyo3::exceptions::PyTypeError::new_err(
-                                    "Tried to call non-callable attribute with arguments",
-                                ));
-                            }
-                            Ok(Interpreter::py_obj_to_talea(current, false))
+                        locals.set_item("args", PyTuple::new_bound(py, py_args))?;
+                        let kwargs = PyDict::new_bound(py);
+                        for (k, v) in &keyword {
+                            kwargs.set_item(k, Interpreter::talea_value_to_py(py, v))?;
                         }
+                        locals.set_item("kwargs", kwargs)?;
+                        py.run_bound(
+                            r#"
+def _talea_outer(module, func_path, args, kwargs):
+    def _talea_inner():
+        current = module
+        for attr_name in func_path.split('.'):
+            current = getattr(current, attr_name)
+        if callable(current):
+            return current(*args, **kwargs)
+        if len(args) != 0 or len(kwargs) != 0:
+            raise TypeError("Tried to call non-callable attribute with arguments")
+        return current
+    return _talea_inner()
+result = _talea_outer(module, func_path, args, kwargs)
+"#,
+                            None,
+                            Some(&locals),
+                        )?;
+                        let res: pyo3::Bound<'_, PyAny> =
+                            locals.get_item("result")?.expect("result missing").clone();
+                        Ok(Interpreter::py_obj_to_talea(res, false))
                     })
                     .map_err(|e| format!("Python Error: {}", e))?;
                     self.environment.define(dest_name, result);
@@ -1485,29 +1495,33 @@ def run_regression(csv, target, features):
         match obj_value {
             TaleaValue::PyObject(obj) => {
                 let result = Python::with_gil(|py| -> PyResult<TaleaValue> {
-
                     let locals = PyDict::new_bound(py);
                     locals.set_item("obj", obj.bind(py).clone())?;
                     locals.set_item("method_path", method_name.as_str())?;
-                    let py_args: Vec<PyObject> = arg_values
+                    let py_args: Vec<PyObject> = positional
                         .iter()
                         .map(|v| Interpreter::talea_value_to_py(py, v))
                         .collect();
                     locals.set_item("args", PyTuple::new_bound(py, py_args))?;
+                    let kwargs = PyDict::new_bound(py);
+                    for (k, v) in &keyword {
+                        kwargs.set_item(k, Interpreter::talea_value_to_py(py, v))?;
+                    }
+                    locals.set_item("kwargs", kwargs)?;
                     py.run_bound(
                         r#"
-def _talea_inner(obj, method_path, args):
-    current = obj
-    for attr_name in method_path.split('.'):
-        current = getattr(current, attr_name)
-    if callable(current):
-        return current(*args)
-    if len(args) != 0:
-        raise TypeError("Tried to call non-callable attribute with arguments")
-    return current
-def _talea_outer(obj, method_path, args):
-    return _talea_inner(obj, method_path, args)
-result = _talea_outer(obj, method_path, args)
+def _talea_outer(obj, method_path, args, kwargs):
+    def _talea_inner():
+        current = obj
+        for attr_name in method_path.split('.'):
+            current = getattr(current, attr_name)
+        if callable(current):
+            return current(*args, **kwargs)
+        if len(args) != 0 or len(kwargs) != 0:
+            raise TypeError("Tried to call non-callable attribute with arguments")
+        return current
+    return _talea_inner()
+result = _talea_outer(obj, method_path, args, kwargs)
 "#,
                         None,
                         Some(&locals),
@@ -1515,37 +1529,6 @@ result = _talea_outer(obj, method_path, args)
                     let res: pyo3::Bound<'_, PyAny> =
                         locals.get_item("result")?.expect("result missing").clone();
                     Ok(Interpreter::py_obj_to_talea(res, false))
-
-                    let mut current: pyo3::Bound<'_, PyAny> = obj.bind(py).clone();
-                    for attr_name in method_name.split('.') {
-                        current = current.getattr(attr_name)?;
-                    }
-                    let py_args: Vec<PyObject> = positional
-                        .iter()
-                        .map(|v| Interpreter::talea_value_to_py(py, v))
-                        .collect();
-                    if current.is_callable() {
-                        let args_tuple = PyTuple::new_bound(py, py_args);
-                        if !keyword.is_empty() {
-                            let kwargs = PyDict::new_bound(py);
-                            for (k, v) in &keyword {
-                                kwargs.set_item(k, Interpreter::talea_value_to_py(py, v))?;
-                            }
-                            let res = current.call(args_tuple, Some(&kwargs))?;
-                            Ok(Interpreter::py_obj_to_talea(res, false))
-                        } else {
-                            let res = current.call1(args_tuple)?;
-                            Ok(Interpreter::py_obj_to_talea(res, false))
-                        }
-                    } else {
-                        if !py_args.is_empty() || !keyword.is_empty() {
-                            return Err(pyo3::exceptions::PyTypeError::new_err(
-                                "Tried to call non-callable attribute with arguments",
-                            ));
-                        }
-                        Ok(Interpreter::py_obj_to_talea(current, false))
-                    }
-
                 })
                 .map_err(|e| format!("Python Error: {}", e))?;
                 self.environment.define(dest_name, result);
