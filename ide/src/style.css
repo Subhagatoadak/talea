@@ -1,0 +1,24 @@
+body {
+  margin: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+#toolbar {
+  padding: 4px;
+  background: #222;
+}
+#toolbar button {
+  margin-right: 4px;
+}
+#editor {
+  flex: 1;
+}
+#console {
+  height: 150px;
+  overflow: auto;
+  background: #111;
+  color: #0f0;
+  margin: 0;
+  padding: 4px;
+}

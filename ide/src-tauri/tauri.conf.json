@@ -1,0 +1,25 @@
+{
+  "package": {
+    "productName": "Talea IDE",
+    "version": "0.1.0"
+  },
+  "build": {
+    "beforeBuildCommand": "",
+    "beforeDevCommand": "",
+    "devPath": "../src",
+    "distDir": "../src"
+  },
+  "tauri": {
+    "allowlist": {
+      "dialog": { "open": true, "save": true },
+      "fs": { "readFile": true, "writeFile": true }
+    },
+    "windows": [
+      {
+        "title": "Talea IDE",
+        "width": 800,
+        "height": 600
+      }
+    ]
+  }
+}
