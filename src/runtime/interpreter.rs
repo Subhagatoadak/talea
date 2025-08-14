@@ -2367,13 +2367,34 @@ def run_regression(csv, target, features):
         } else if let Ok(n) = obj.extract::<i64>() {
             TaleaValue::Number(n)
         } else if let Ok(f) = obj.extract::<f64>() {
-            TaleaValue::Number(f as i64)
+            TaleaValue::Float(f)
         } else if let Ok(list) = obj.downcast::<PyList>() {
             let vals = list
                 .iter()
                 .map(|item| Interpreter::py_obj_to_talea(item))
                 .collect();
             TaleaValue::List(vals)
+        } else if obj.hasattr("to_dict").unwrap_or(false) {
+            if let Ok(method) = obj.getattr("to_dict") {
+                if let Ok(records) = method.call1(("records",)) {
+                    if let Ok(list) = records.downcast::<PyList>() {
+                        let mut rows: Vec<HashMap<String, TaleaValue>> = Vec::new();
+                        for item in list.iter() {
+                            if let Ok(dict) = item.downcast::<PyDict>() {
+                                let mut map: HashMap<String, TaleaValue> = HashMap::new();
+                                for (k, v) in dict.iter() {
+                                    if let Ok(key) = k.extract::<String>() {
+                                        map.insert(key, Interpreter::py_obj_to_talea(v));
+                                    }
+                                }
+                                rows.push(map);
+                            }
+                        }
+                        return TaleaValue::Table(rows);
+                    }
+                }
+            }
+            TaleaValue::Null
         } else {
             TaleaValue::PyObject(obj.unbind())
         }
