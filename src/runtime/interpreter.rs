@@ -1449,26 +1449,35 @@ def run_regression(csv, target, features):
         match obj_value {
             TaleaValue::PyObject(obj) => {
                 let result = Python::with_gil(|py| -> PyResult<TaleaValue> {
-                    let mut current: pyo3::Bound<'_, PyAny> = obj.bind(py).clone();
-                    for attr_name in method_name.split('.') {
-                        current = current.getattr(attr_name)?;
-                    }
+                    let locals = PyDict::new_bound(py);
+                    locals.set_item("obj", obj.bind(py).clone())?;
+                    locals.set_item("method_path", method_name.as_str())?;
                     let py_args: Vec<PyObject> = arg_values
                         .iter()
                         .map(|v| Interpreter::talea_value_to_py(py, v))
                         .collect();
-                    if current.is_callable() {
-                        let args_tuple = PyTuple::new_bound(py, py_args);
-                        let res = current.call1(args_tuple)?;
-                        Ok(Interpreter::py_obj_to_talea(res, false))
-                    } else {
-                        if !py_args.is_empty() {
-                            return Err(pyo3::exceptions::PyTypeError::new_err(
-                                "Tried to call non-callable attribute with arguments",
-                            ));
-                        }
-                        Ok(Interpreter::py_obj_to_talea(current, false))
-                    }
+                    locals.set_item("args", PyTuple::new_bound(py, py_args))?;
+                    py.run_bound(
+                        r#"
+def _talea_inner(obj, method_path, args):
+    current = obj
+    for attr_name in method_path.split('.'):
+        current = getattr(current, attr_name)
+    if callable(current):
+        return current(*args)
+    if len(args) != 0:
+        raise TypeError("Tried to call non-callable attribute with arguments")
+    return current
+def _talea_outer(obj, method_path, args):
+    return _talea_inner(obj, method_path, args)
+result = _talea_outer(obj, method_path, args)
+"#,
+                        None,
+                        Some(&locals),
+                    )?;
+                    let res: pyo3::Bound<'_, PyAny> =
+                        locals.get_item("result")?.expect("result missing").clone();
+                    Ok(Interpreter::py_obj_to_talea(res, false))
                 })
                 .map_err(|e| format!("Python Error: {}", e))?;
                 self.environment.define(dest_name, result);
