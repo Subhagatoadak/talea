@@ -136,6 +136,15 @@ fn test_parse_callmethod() {
 }
 
 #[test]
+fn test_parse_expression_statement() {
+    let statements = parse("data");
+    assert_eq!(
+        statements[0],
+        Statement::Expression(Expression::Identifier("data".to_string()))
+    );
+}
+
+#[test]
 fn test_parse_compare() {
     let statements = parse("compare a to b as result");
     assert_eq!(

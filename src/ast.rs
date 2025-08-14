@@ -45,6 +45,8 @@ pub enum Backend {
 pub enum Statement {
     Use(Backend), // New: `use python`
     Help,
+    /// Evaluate an expression and display its value.
+    Expression(Expression),
     Load {
         source: Expression,
         alias: Expression,

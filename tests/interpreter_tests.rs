@@ -151,3 +151,26 @@ fn test_callmethod_describe() {
     let interp = run_script(script).unwrap();
     assert!(interp.get_variable("summary").is_some());
 }
+
+#[test]
+fn test_expression_statement() {
+    let script = r#"
+        define x as 5
+        x
+    "#;
+    let interp = run_script(script).unwrap();
+    match interp.get_variable("x") {
+        Some(TaleaValue::Number(n)) => assert_eq!(n, 5),
+        other => panic!("expected 5, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_callmethod_non_pyobject_error() {
+    let script = r#"
+        define x as 1
+        callmethod x foo as y
+    "#;
+    let err = run_script(script).err().expect("expected error");
+    assert!(err.contains("not a Python object"));
+}
