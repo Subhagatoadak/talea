@@ -136,7 +136,7 @@ pub enum Token {
     Ngrams,
     URL,
     JSON,
-    CSV,
+    CSV, // tabular data source
     XML,
     First,
     Last,

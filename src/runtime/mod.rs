@@ -11,6 +11,7 @@ pub enum TaleaValue {
     Number(i64),
     List(Vec<TaleaValue>),
     Tuple(Vec<TaleaValue>),
+    Table(Vec<HashMap<String, TaleaValue>>),
     Unit(Token),
     Null,
 }
