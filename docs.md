@@ -42,6 +42,7 @@ The following commands are currently supported by the Talea interpreter. Each co
 | `save` | Write content to a file | `save article to "out.txt"` |
 | `print` | Display the contents of a variable | `print article` |
 | `tokenize` | Split text into individual tokens | `tokenize article as tokens` |
+| `doc2bow` | Convert tokens to bag-of-words | `doc2bow tokens as bow` |
 | `split` | Split text by a unit such as words, sentences, lines, or characters | `split sentences in article as sentences` |
 | `join` | Join list items into text | `join words in tokens with " " as sentence` |
 | `replace` | Replace text patterns | `replace "cat" with "dog" in article as pets` |
@@ -147,19 +148,13 @@ Talea can summarize plain text directly. To summarize a list of numbers,
 enable the R backend first with `use r`.
 
 ### Topic Modeling (via Python's `gensim`)
-Talea supports nested module calls, letting you access functions like
-`g.corpora.Dictionary` and `g.models.LdaModel` directly. Wrap your tokens in a
-list to build the dictionary, then turn the tokens into a bag of words for the
-LDA model.
+Use the built-in `doc2bow` command to create a bag-of-words representation
+without requiring Python dependencies.
 ```talea
-use python
-import python "gensim" as g
 load "article.txt" as article
 tokenize article as tokens
-call g corpora.Dictionary [tokens] as dict
-call dict doc2bow tokens as bow
-call g models.LdaModel [[bow], dict, 5] as lda
-print lda
+doc2bow tokens as bow
+print bow
 ```
 
 ### Sentiment Analysis (via `textblob`)

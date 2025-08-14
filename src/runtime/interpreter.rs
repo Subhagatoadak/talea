@@ -89,6 +89,10 @@ impl Interpreter {
                 source,
                 destination,
             } => self.execute_tokenize_statement(source, destination),
+            Statement::Doc2Bow {
+                source,
+                destination,
+            } => self.execute_doc2bow_statement(source, destination),
             Statement::Split {
                 unit,
                 source,
@@ -844,6 +848,40 @@ impl Interpreter {
             Ok(())
         } else {
             Err("The 'tokenize' command can only be used on a String value.".to_string())
+        }
+    }
+
+    fn execute_doc2bow_statement(
+        &mut self,
+        source: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let tokens_val = self.evaluate_expression(source)?;
+        let dest_name = self.get_identifier_name(destination)?;
+        if let TaleaValue::List(list) = tokens_val {
+            let mut counts: HashMap<String, i64> = HashMap::new();
+            for item in list {
+                if let TaleaValue::String(s) = item {
+                    *counts.entry(s).or_insert(0) += 1;
+                } else {
+                    return Err("doc2bow expects a list of strings".to_string());
+                }
+            }
+            let mut bow: Vec<TaleaValue> = Vec::new();
+            for (word, count) in counts {
+                bow.push(TaleaValue::Tuple(vec![
+                    TaleaValue::String(word),
+                    TaleaValue::Number(count),
+                ]));
+            }
+            println!(
+                "[Interpreter: Created bag-of-words with {} entries.]",
+                bow.len()
+            );
+            self.environment.define(dest_name, TaleaValue::List(bow));
+            Ok(())
+        } else {
+            Err("doc2bow expects a list of tokens".to_string())
         }
     }
 

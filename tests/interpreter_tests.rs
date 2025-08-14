@@ -37,3 +37,31 @@ fn test_interpreter_load_tokenize_split() {
         _ => panic!("sentences not split"),
     }
 }
+
+#[test]
+fn test_doc2bow() {
+    let script = r#"
+        load "article.txt" as article
+        tokenize article as tokens
+        doc2bow tokens as bow
+    "#;
+    let interp = run_script(script);
+
+    match interp.get_variable("bow") {
+        Some(TaleaValue::List(list)) => {
+            assert_eq!(list.len(), 12);
+            let mut found_the = false;
+            for item in list {
+                if let TaleaValue::Tuple(tuple) = item {
+                    if let [TaleaValue::String(word), TaleaValue::Number(count)] = &tuple[..] {
+                        if word == "the" && *count == 2 {
+                            found_the = true;
+                        }
+                    }
+                }
+            }
+            assert!(found_the, "expected 'the' with count 2");
+        }
+        _ => panic!("bow not generated"),
+    }
+}

@@ -164,19 +164,15 @@ Talea can orchestrate sophisticated natural language processing pipelines by cal
 > print sentiment
 ```
 
-#### Python: Topic Modeling with gensim
+#### Built-in Bag-of-Words
 
-Talea now supports nested module calls, enabling workflows such as
-`g.corpora.Dictionary` or `g.models.LdaModel`.
+Generate a bag-of-words representation without relying on Python:
 
 ```talea
-> use python
-> import python "gensim" as g
-> call g simple_preprocess my_article as tokens
-> call g corpora.Dictionary [tokens] as dict
-> call dict doc2bow tokens as bow
-> call g models.LdaModel [[bow], dict, 5] as lda
-> print lda
+> load "article.txt" as my_article
+> tokenize my_article as tokens
+> doc2bow tokens as bow
+> print bow
 ```
 
 #### R: Token Frequency with quanteda
@@ -253,6 +249,7 @@ Talea understands a growing set of plain-English commands. The table below summa
 |--------|---------|---------|
 | `load` | Read a file into a variable | `load "file.txt" as my_text` |
 | `tokenize` | Split text into tokens | `tokenize my_text as tokens` |
+| `doc2bow` | Convert tokens to bag-of-words | `doc2bow tokens as bow` |
 | `split` | Split text by unit (word, sentence, line, character, paragraph) | `split lines in my_text as lines` |
 | `join` | Join list items into text | `join words in tokens with " " as sentence` |
 | `replace` | Replace text patterns | `replace "cat" with "dog" in my_text as new_text` |
