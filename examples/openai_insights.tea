@@ -1,0 +1,4 @@
+# Generate a natural language summary of the dataset with OpenAI
+load "sample_data.csv" as raw_data
+openai "Summarize this dataset:\n" + raw_data as summary
+print summary

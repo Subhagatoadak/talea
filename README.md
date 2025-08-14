@@ -239,6 +239,10 @@ OpenAiPipeline::quick(
 
 The model's reply will be written to `renaissance.txt`.
 
+### Working with Data
+
+Curious about numbers? The friendly [Statistics Guide](docs/statistics.md) walks you through loading datasets, computing descriptive stats, running tests, fitting regressions, and turning results into prose with OpenAI.
+
 -----
 
 ## 📚 Command Reference
