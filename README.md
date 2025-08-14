@@ -18,6 +18,7 @@ Named after the Latin word *talea*—meaning "a narrative thread" or "a story br
 * **⚙️ Built-in Logic:** Comes with built-in logic for file I/O, variable manipulation, arithmetic, and data filtering.
 * **🌱 Extensible Core:** The modular architecture (Lexer, Parser, Interpreter) makes it easy for contributors to add new commands, parsers, and execution logic.
 * **💻 Cross-Platform:** Designed to work on macOS, Linux, and Windows with the right setup.
+To learn more, see the [Complete Guide](docs/complete_guide.md) for installation, usage, saving results, and analysis commands.
 
 ---
 
