@@ -52,6 +52,11 @@ set environment variable OPENAI_API_KEY to "sk-..."
 | Summarize text | `summarize article as summary` |
 | Translate text | `translate article to "spanish" as es_article` |
 | Sentiment analysis | `sentiment article as mood` |
+| Word cloud | `wordcloud article as cloud` |
+| Word association | `association tokens as pairs` |
+| Semantic similarity | `similarity text1 to text2 as score` |
+| Semantic search | `semanticsearch "rust" in docs as results` |
+| Keyword search | `search "rust" in article as hits` |
 | Filter lists | `filter tokens containing "rust" as rust_tokens` |
 
 ## Control Flow and Arithmetic

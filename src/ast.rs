@@ -146,6 +146,29 @@ pub enum Statement {
         source: Expression,
         destination: Expression,
     }, // New
+    WordCloud {
+        source: Expression,
+        destination: Expression,
+    },
+    WordAssociation {
+        source: Expression,
+        destination: Expression,
+    },
+    SemanticSimilarity {
+        text1: Expression,
+        text2: Expression,
+        destination: Expression,
+    },
+    SemanticSearch {
+        query: Expression,
+        source: Expression,
+        destination: Expression,
+    },
+    KeywordSearch {
+        query: Expression,
+        source: Expression,
+        destination: Expression,
+    },
     Import {
         backend: Backend,
         module: Expression,

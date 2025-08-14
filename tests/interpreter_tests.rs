@@ -65,3 +65,50 @@ fn test_doc2bow() {
         _ => panic!("bow not generated"),
     }
 }
+
+#[test]
+fn test_wordcloud_command() {
+    let script = r#"
+        wordcloud "hello world hello" as cloud
+    "#;
+    let interp = run_script(script);
+    match interp.get_variable("cloud") {
+        Some(TaleaValue::List(list)) => {
+            assert_eq!(list.len(), 2);
+            if let TaleaValue::Tuple(first) = &list[0] {
+                assert_eq!(first[0], TaleaValue::String("hello".to_string()));
+                assert_eq!(first[1], TaleaValue::Number(2));
+            } else {
+                panic!("expected tuple");
+            }
+        }
+        _ => panic!("cloud not generated"),
+    }
+}
+
+#[test]
+fn test_similarity_command() {
+    let script = r#"
+        similarity "hello world" to "hello there" as score
+    "#;
+    let interp = run_script(script);
+    match interp.get_variable("score") {
+        Some(TaleaValue::Number(n)) => assert_eq!(n, 33),
+        _ => panic!("score not computed"),
+    }
+}
+
+#[test]
+fn test_search_command() {
+    let script = r#"
+        search "hello" in "hello world. hi there." as hits
+    "#;
+    let interp = run_script(script);
+    match interp.get_variable("hits") {
+        Some(TaleaValue::List(list)) => {
+            assert_eq!(list.len(), 1);
+            assert_eq!(list[0], TaleaValue::String("hello world".to_string()));
+        }
+        _ => panic!("hits not found"),
+    }
+}

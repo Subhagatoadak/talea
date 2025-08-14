@@ -46,3 +46,66 @@ fn test_parse_split() {
         }
     );
 }
+
+#[test]
+fn test_parse_wordcloud() {
+    let statements = parse("wordcloud article as cloud");
+    assert_eq!(
+        statements[0],
+        Statement::WordCloud {
+            source: Expression::Identifier("article".to_string()),
+            destination: Expression::Identifier("cloud".to_string()),
+        }
+    );
+}
+
+#[test]
+fn test_parse_association() {
+    let statements = parse("association tokens as assoc");
+    assert_eq!(
+        statements[0],
+        Statement::WordAssociation {
+            source: Expression::Identifier("tokens".to_string()),
+            destination: Expression::Identifier("assoc".to_string()),
+        }
+    );
+}
+
+#[test]
+fn test_parse_similarity() {
+    let statements = parse("similarity a to b as score");
+    assert_eq!(
+        statements[0],
+        Statement::SemanticSimilarity {
+            text1: Expression::Identifier("a".to_string()),
+            text2: Expression::Identifier("b".to_string()),
+            destination: Expression::Identifier("score".to_string()),
+        }
+    );
+}
+
+#[test]
+fn test_parse_semanticsearch() {
+    let statements = parse("semanticsearch \"hi\" in documents as results");
+    assert_eq!(
+        statements[0],
+        Statement::SemanticSearch {
+            query: Expression::StringLiteral("hi".to_string()),
+            source: Expression::Identifier("documents".to_string()),
+            destination: Expression::Identifier("results".to_string()),
+        }
+    );
+}
+
+#[test]
+fn test_parse_search() {
+    let statements = parse("search \"rust\" in article as hits");
+    assert_eq!(
+        statements[0],
+        Statement::KeywordSearch {
+            query: Expression::StringLiteral("rust".to_string()),
+            source: Expression::Identifier("article".to_string()),
+            destination: Expression::Identifier("hits".to_string()),
+        }
+    );
+}

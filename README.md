@@ -263,6 +263,11 @@ Talea understands a growing set of plain-English commands. The table below summa
 | `paraphrase` | Rephrase text using OpenAI | `paraphrase my_text as paraphrased` |
 | `translate` | Translate text to another language | `translate my_text to "spanish" as spanish_text` |
 | `sentiment` | Analyze sentiment of text | `sentiment my_text as mood` |
+| `wordcloud` | Generate word frequency list | `wordcloud my_text as cloud` |
+| `association` | Analyze word associations | `association tokens as pairs` |
+| `similarity` | Measure semantic similarity between texts | `similarity text1 to text2 as score` |
+| `semanticsearch` | Search documents by semantic similarity | `semanticsearch "rust" in docs as results` |
+| `search` | Keyword or key phrase search | `search "rust" in my_text as hits` |
 | `phrase` | Extract phrases from text | `phrase my_text as phrases` |
 | `paragraph` | Work with paragraphs | `paragraph my_text as paras` |
 | `concordance` | Find sentences containing a word | `concordance "rust" in my_text as contexts` |
