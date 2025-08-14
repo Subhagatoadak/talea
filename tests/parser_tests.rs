@@ -202,3 +202,9 @@ fn test_parse_kolmogorov() {
     );
 }
 
+#[test]
+fn test_parse_ignores_comments() {
+    let script = "define x as 1 # inline comment\n# full line\nprint x";
+    let statements = parse(script);
+    assert_eq!(statements.len(), 2);
+}

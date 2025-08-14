@@ -91,6 +91,24 @@ cargo run
 
 You should be greeted by the Talea prompt: `Talea REPL v0.2.0 (Python-Powered)`.
 
+### 4. Run Talea Scripts
+
+Commands can also be stored in a file with the `.talea` extension and executed non-interactively.
+
+```talea
+# hello_world.talea
+load "article.txt" as article
+print article
+```
+
+Run the file by passing it to the Talea binary:
+
+```bash
+cargo run -- examples/hello_world.talea
+```
+
+Lines beginning with `#` are treated as comments and ignored.
+
 -----
 
 ## 📖 Example Workflow

@@ -94,7 +94,6 @@ pub enum Token {
     Shapiro,
     Kolmogorov,
 
-
     Add,
     Subtract,
     Multiply,
@@ -315,14 +314,12 @@ impl<'a> Lexer<'a> {
 
             "regress" => Token::Regress,
 
-
             "ttest" | "t_test" => Token::TTest,
             "anova" => Token::Anova,
             "median_test" | "mediantest" => Token::MedianTest,
 
             "shapiro" => Token::Shapiro,
             "kolmogorov" => Token::Kolmogorov,
-
 
             "add" => Token::Add,
             "subtract" => Token::Subtract,
@@ -431,10 +428,19 @@ impl<'a> Lexer<'a> {
     }
     fn skip_whitespace(&mut self) {
         while let Some(c) = self.current_char() {
-            if !c.is_whitespace() {
+            if c.is_whitespace() {
+                self.advance();
+            } else if c == '#' {
+                // Skip comment until end of line (supports shebang)
+                while let Some(ch) = self.current_char() {
+                    if ch == '\n' {
+                        break;
+                    }
+                    self.advance();
+                }
+            } else {
                 break;
             }
-            self.advance();
         }
     }
     fn current_char(&self) -> Option<char> {
