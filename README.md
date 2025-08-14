@@ -110,6 +110,10 @@ cargo run -- examples/hello_world.talea
 
 Lines beginning with `#` are treated as comments and ignored.
 
+### 5. Talea IDE (optional)
+
+A lightweight graphical editor is available in the [`ide/`](ide/README.md) directory. It uses Tauri and the Monaco editor to provide a windowed environment where you can open, edit, run, and save `.talea` scripts. Refer to its [README](ide/README.md) for installation and usage details.
+
 -----
 
 ## 📖 Example Workflow
