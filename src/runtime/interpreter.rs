@@ -231,7 +231,6 @@ impl Interpreter {
         Ok(())
     }
 
-
     fn execute_compare_statement(
         &mut self,
         left: &Expression,
@@ -241,10 +240,8 @@ impl Interpreter {
         let left_val = self.evaluate_expression(left)?;
         let right_val = self.evaluate_expression(right)?;
         let dest_name = self.get_identifier_name(destination)?;
-        self.environment.define(
-            dest_name,
-            TaleaValue::Tuple(vec![left_val, right_val]),
-        );
+        self.environment
+            .define(dest_name, TaleaValue::Tuple(vec![left_val, right_val]));
         println!("[Interpreter: Compared values.]");
         Ok(())
     }
@@ -256,7 +253,8 @@ impl Interpreter {
     ) -> std::result::Result<(), String> {
         let dest_name = self.get_identifier_name(destination)?;
         let _value = self.evaluate_expression(source)?;
-        self.environment.define(dest_name, TaleaValue::String("average".to_string()));
+        self.environment
+            .define(dest_name, TaleaValue::String("average".to_string()));
         println!("[Interpreter: Averaged data.]");
         Ok(())
     }
@@ -268,7 +266,8 @@ impl Interpreter {
     ) -> std::result::Result<(), String> {
         let dest_name = self.get_identifier_name(destination)?;
         let _value = self.evaluate_expression(source)?;
-        self.environment.define(dest_name, TaleaValue::String("normal".to_string()));
+        self.environment
+            .define(dest_name, TaleaValue::String("normal".to_string()));
         println!("[Interpreter: Checked normality.]");
         Ok(())
     }
@@ -732,7 +731,6 @@ impl Interpreter {
         Ok(())
     }
 
-
     fn execute_regress_statement(
         &mut self,
         target: &Expression,
@@ -976,10 +974,7 @@ def run_regression(csv, target, features):
                 "kurtosis" => {
                     let arr = col.getattr("tolist")?.call0()?;
                     let stats = PyModule::import_bound(py, "scipy.stats")?;
-                    stats
-                        .getattr("kurtosis")?
-                        .call1((arr,))?
-                        .extract::<f64>()
+                    stats.getattr("kurtosis")?.call1((arr,))?.extract::<f64>()
                 }
                 _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>("bad func"))?,
             }
@@ -2160,7 +2155,6 @@ def run_regression(csv, target, features):
         }
     }
 
-
     fn get_number_list(
         &mut self,
         expression: &Expression,
@@ -2204,7 +2198,9 @@ def run_regression(csv, target, features):
                                             TaleaValue::Number(n) => nums.push(*n as f64),
                                             TaleaValue::Float(f) => nums.push(*f),
                                             _ => {
-                                                return Err("Column values must be numbers".to_string())
+                                                return Err(
+                                                    "Column values must be numbers".to_string()
+                                                );
                                             }
                                         }
                                     }
@@ -2223,7 +2219,9 @@ def run_regression(csv, target, features):
                                             TaleaValue::Number(n) => nums.push(*n as f64),
                                             TaleaValue::Float(f) => nums.push(*f),
                                             _ => {
-                                                return Err("Column values must be numbers".to_string())
+                                                return Err(
+                                                    "Column values must be numbers".to_string()
+                                                );
                                             }
                                         }
                                     }
@@ -2237,7 +2235,6 @@ def run_regression(csv, target, features):
             }
         }
         Err(format!("Column '{}' not found", col_name))
-
     }
 
     fn execute_if_statement(
@@ -2336,13 +2333,34 @@ def run_regression(csv, target, features):
         } else if let Ok(n) = obj.extract::<i64>() {
             TaleaValue::Number(n)
         } else if let Ok(f) = obj.extract::<f64>() {
-            TaleaValue::Number(f as i64)
+            TaleaValue::Float(f)
         } else if let Ok(list) = obj.downcast::<PyList>() {
             let vals = list
                 .iter()
                 .map(|item| Interpreter::py_obj_to_talea(item))
                 .collect();
             TaleaValue::List(vals)
+        } else if obj.hasattr("to_dict").unwrap_or(false) {
+            if let Ok(method) = obj.getattr("to_dict") {
+                if let Ok(records) = method.call1(("records",)) {
+                    if let Ok(list) = records.downcast::<PyList>() {
+                        let mut rows: Vec<HashMap<String, TaleaValue>> = Vec::new();
+                        for item in list.iter() {
+                            if let Ok(dict) = item.downcast::<PyDict>() {
+                                let mut map: HashMap<String, TaleaValue> = HashMap::new();
+                                for (k, v) in dict.iter() {
+                                    if let Ok(key) = k.extract::<String>() {
+                                        map.insert(key, Interpreter::py_obj_to_talea(v));
+                                    }
+                                }
+                                rows.push(map);
+                            }
+                        }
+                        return TaleaValue::Table(rows);
+                    }
+                }
+            }
+            TaleaValue::Null
         } else {
             TaleaValue::Null
         }
@@ -2352,11 +2370,9 @@ def run_regression(csv, target, features):
         match value {
             TaleaValue::String(s) => JsonValue::String(s.clone()),
             TaleaValue::Number(n) => JsonValue::Number((*n).into()),
-            TaleaValue::Float(f) => {
-                serde_json::Number::from_f64(*f)
-                    .map(JsonValue::Number)
-                    .unwrap_or(JsonValue::Null)
-            }
+            TaleaValue::Float(f) => serde_json::Number::from_f64(*f)
+                .map(JsonValue::Number)
+                .unwrap_or(JsonValue::Null),
             TaleaValue::Table(rows) => {
                 let json_rows: Vec<JsonValue> = rows
                     .iter()

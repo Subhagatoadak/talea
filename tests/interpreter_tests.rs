@@ -1,7 +1,7 @@
 use talea::lexer::Lexer;
 use talea::parser::Parser;
-use talea::runtime::interpreter::Interpreter;
 use talea::runtime::TaleaValue;
+use talea::runtime::interpreter::Interpreter;
 
 fn run_script(input: &str) -> Result<Interpreter, String> {
     let mut lexer = Lexer::new(input);
@@ -113,3 +113,17 @@ fn test_search_command() {
     }
 }
 
+#[test]
+#[ignore]
+fn test_python_dataframe_conversion() {
+    let script = r#"
+        use python
+        import python "pandas" as pd
+        call pd read_csv "examples/sample_data.csv" as data
+    "#;
+    let interp = run_script(script).unwrap();
+    match interp.get_variable("data") {
+        Some(TaleaValue::Table(rows)) => assert_eq!(rows.len(), 5),
+        other => panic!("expected table, got {:?}", other),
+    }
+}
