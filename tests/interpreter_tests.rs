@@ -238,7 +238,10 @@ fn test_regress_outputs_metrics() {
                 || e.contains("pip install statsmodels")
                 || e.contains("pip install matplotlib")
                 || e.contains("Failed to install Python module")
+
                 || e.contains("Could not install packages")
+
+
                 || e.contains("ModuleNotFoundError")
                 || e.contains("No module named") =>
         {
@@ -259,8 +262,12 @@ fn test_regress_outputs_metrics() {
     assert!(metrics.get("r_squared").is_some());
     assert!(metrics.get("mape").is_some());
     assert!(metrics.get("rmse").is_some());
+
     assert!(parsed.get("chart").is_none());
     let chart_path = "model_chart.png";
     assert!(std::path::Path::new(chart_path).exists());
     std::fs::remove_file(chart_path).unwrap();
+
+    assert!(parsed.get("chart").is_some());
+
 }
