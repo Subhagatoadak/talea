@@ -1334,14 +1334,14 @@ def run_regression(csv, target, features):
                     if current.is_callable() {
                         let args_tuple = PyTuple::new_bound(py, py_args);
                         let res = current.call1(args_tuple)?;
-                        Ok(Interpreter::py_obj_to_talea(res))
+                        Ok(Interpreter::py_obj_to_talea(res, false))
                     } else {
                         if !py_args.is_empty() {
                             return Err(pyo3::exceptions::PyTypeError::new_err(
                                 "Tried to call non-callable attribute with arguments",
                             ));
                         }
-                        Ok(Interpreter::py_obj_to_talea(current))
+                        Ok(Interpreter::py_obj_to_talea(current, false))
                     }
                 })
                 .map_err(|e| format!("Python Error: {}", e))?;
@@ -1390,14 +1390,14 @@ def run_regression(csv, target, features):
                         if current.is_callable() {
                             let args_tuple = PyTuple::new_bound(py, py_args);
                             let res = current.call1(args_tuple)?;
-                            Ok(Interpreter::py_obj_to_talea(res))
+                            Ok(Interpreter::py_obj_to_talea(res, false))
                         } else {
                             if !py_args.is_empty() {
                                 return Err(pyo3::exceptions::PyTypeError::new_err(
                                     "Tried to call non-callable attribute with arguments",
                                 ));
                             }
-                            Ok(Interpreter::py_obj_to_talea(current))
+                            Ok(Interpreter::py_obj_to_talea(current, false))
                         }
                     })
                     .map_err(|e| format!("Python Error: {}", e))?;
@@ -1440,14 +1440,14 @@ def run_regression(csv, target, features):
                 if current.is_callable() {
                     let args_tuple = PyTuple::new_bound(py, py_args);
                     let res = current.call1(args_tuple)?;
-                    Ok(Interpreter::py_obj_to_talea(res))
+                    Ok(Interpreter::py_obj_to_talea(res, false))
                 } else {
                     if !py_args.is_empty() {
                         return Err(pyo3::exceptions::PyTypeError::new_err(
                             "Tried to call non-callable attribute with arguments",
                         ));
                     }
-                    Ok(Interpreter::py_obj_to_talea(current))
+                    Ok(Interpreter::py_obj_to_talea(current, false))
                 }
             })
             .map_err(|e| format!("Python Error: {}", e))?;
@@ -1642,7 +1642,7 @@ def run_regression(csv, target, features):
                 let mut map: HashMap<String, TaleaValue> = HashMap::new();
                 for (k, v) in dict.iter() {
                     let key: String = k.extract()?;
-                    let val = Interpreter::py_obj_to_talea(v);
+                    let val = Interpreter::py_obj_to_talea(v, true);
                     map.insert(key, val);
                 }
                 out.push(map);
@@ -2087,31 +2087,43 @@ def run_regression(csv, target, features):
         let value = self.evaluate_expression(expression)?;
         match value {
             TaleaValue::Table(rows) => {
-                if rows.is_empty() {
-                    println!("<empty table>");
-                } else {
-                    let mut cols: Vec<String> = rows[0].keys().cloned().collect();
-                    cols.sort();
-                    println!("{}", cols.join("\t"));
-                    for row in rows.iter().take(5) {
-                        let mut vals = Vec::new();
-                        for col in &cols {
-                            let cell = row
-                                .get(col)
-                                .map(|v| v.to_string())
-                                .unwrap_or_else(|| "null".to_string());
-                            vals.push(cell);
-                        }
-                        println!("{}", vals.join("\t"));
-                    }
-                    if rows.len() > 5 {
-                        println!("... ({} more rows)", rows.len() - 5);
-                    }
+                Self::print_table(&rows);
+            }
+            TaleaValue::PyObject(obj) => {
+                let converted =
+                    Python::with_gil(|py| Interpreter::py_obj_to_talea(obj.bind(py).clone(), true));
+                match converted {
+                    TaleaValue::Table(rows) => Self::print_table(&rows),
+                    other => println!("{}", other.to_string()),
                 }
             }
             other => println!("{}", other.to_string()),
         }
         Ok(())
+    }
+
+    fn print_table(rows: &[HashMap<String, TaleaValue>]) {
+        if rows.is_empty() {
+            println!("<empty table>");
+        } else {
+            let mut cols: Vec<String> = rows[0].keys().cloned().collect();
+            cols.sort();
+            println!("{}", cols.join("\t"));
+            for row in rows.iter().take(5) {
+                let mut vals = Vec::new();
+                for col in &cols {
+                    let cell = row
+                        .get(col)
+                        .map(|v| v.to_string())
+                        .unwrap_or_else(|| "null".to_string());
+                    vals.push(cell);
+                }
+                println!("{}", vals.join("\t"));
+            }
+            if rows.len() > 5 {
+                println!("... ({} more rows)", rows.len() - 5);
+            }
+        }
     }
     fn evaluate_expression(
         &mut self,
@@ -2415,7 +2427,7 @@ def run_regression(csv, target, features):
         }
     }
 
-    fn py_obj_to_talea(obj: Bound<'_, PyAny>) -> TaleaValue {
+    fn py_obj_to_talea(obj: Bound<'_, PyAny>, convert_df: bool) -> TaleaValue {
         if let Ok(s) = obj.extract::<String>() {
             TaleaValue::String(s)
         } else if let Ok(n) = obj.extract::<i64>() {
@@ -2425,10 +2437,10 @@ def run_regression(csv, target, features):
         } else if let Ok(list) = obj.downcast::<PyList>() {
             let vals = list
                 .iter()
-                .map(|item| Interpreter::py_obj_to_talea(item))
+                .map(|item| Interpreter::py_obj_to_talea(item, convert_df))
                 .collect();
             TaleaValue::List(vals)
-        } else if obj.hasattr("to_dict").unwrap_or(false) {
+        } else if convert_df && obj.hasattr("to_dict").unwrap_or(false) {
             if let Ok(method) = obj.getattr("to_dict") {
                 if let Ok(records) = method.call1(("records",)) {
                     if let Ok(list) = records.downcast::<PyList>() {
@@ -2438,7 +2450,10 @@ def run_regression(csv, target, features):
                                 let mut map: HashMap<String, TaleaValue> = HashMap::new();
                                 for (k, v) in dict.iter() {
                                     if let Ok(key) = k.extract::<String>() {
-                                        map.insert(key, Interpreter::py_obj_to_talea(v));
+                                        map.insert(
+                                            key,
+                                            Interpreter::py_obj_to_talea(v, convert_df),
+                                        );
                                     }
                                 }
                                 rows.push(map);
