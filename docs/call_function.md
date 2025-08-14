@@ -4,9 +4,10 @@ The `call` command runs functions from imported libraries or methods on objects.
 Use it to interact with Python or other backends while writing Talea scripts.
 
 
-## Two Ways to `call`
+## Two Ways to Run Code
 
-There are two patterns depending on what you want to run.
+Talea now distinguishes between calling a function from a library and
+invoking a method on an existing object.
 
 ### 1. Call a function from a library
 
@@ -19,22 +20,7 @@ call <library> <function> [arguments] as <result>
 - **`[arguments]`** – optional values passed to the function.
 - **`<result>`** – variable that stores what the function returns.
 
-Example:
-
-## Basic Structure
-
-```
-call <source> <function-or-method> [arguments] as <result>
-```
-
-- **`<source>`** – library alias or variable name holding an object.
-- **`<function-or-method>`** – the function to run or the method on the object.
-- **`[arguments]`** – optional values passed to the function/method.
-- **`<result>`** – name for the value returned from the call.
-
-## Examples
-
-### Calling a function from a library
+### Example
 
 
 ```
@@ -47,7 +33,7 @@ call pd read_csv "examples/sample_data.csv" as data
 ### 2. Call a method on an object
 
 ```
-call <object> <method> [arguments] as <result>
+callmethod <object> <method> [arguments] as <result>
 ```
 
 - **`<object>`** – a variable that already holds a Python object.
@@ -55,22 +41,18 @@ call <object> <method> [arguments] as <result>
 - **`[arguments]`** – optional values passed to the method.
 - **`<result>`** – variable that stores the method’s return value.
 
-Example:
+### Example
 
 ```
 # data was created in the previous example
 
-### Calling a method on an object
-
-```
-
-call data describe as summary
+callmethod data describe as summary
 print summary
 ```
 
 
-If you get `Library 'data' not found. Did you import it?`, Talea could not find the
-`data` object. Make sure the earlier call that created `data` succeeded and that
+If you get `Object 'data' not found`, Talea could not find the `data`
+object. Make sure the earlier call that created `data` succeeded and that
 the name is spelled the same.
 
 
@@ -103,7 +85,7 @@ the name is spelled the same.
 - **Chaining:** first call a function, then call a method on the result.
   ```
   call pd read_csv "examples/sample_data.csv" as data
-  call data head 10 as first_rows
+  callmethod data head 10 as first_rows
   ```
 
 ## Troubleshooting Steps

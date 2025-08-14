@@ -19,7 +19,7 @@ Generate quick summary statistics with pandas.
 use python
 import python "pandas" as pd
 call pd read_csv "examples/sample_data.csv" as data
-call data describe as summary
+callmethod data describe as summary
 print summary
 ```
 

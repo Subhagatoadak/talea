@@ -104,7 +104,7 @@ Talea can call Python packages for data work.
 use python
 import python "pandas" as pd
 call pd read_csv "examples/sample_data.csv" as data
-call data describe as summary
+callmethod data describe as summary
 print summary
 ```
 

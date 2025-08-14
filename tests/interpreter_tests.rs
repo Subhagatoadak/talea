@@ -140,3 +140,16 @@ fn test_python_dataframe_conversion() {
         other => panic!("expected table, got {:?}", other),
     }
 }
+
+#[test]
+#[ignore]
+fn test_callmethod_describe() {
+    let script = r#"
+        use python
+        import python \"pandas\" as pd
+        call pd read_csv \"examples/sample_data.csv\" as data
+        callmethod data describe as summary
+    "#;
+    let interp = run_script(script).unwrap();
+    assert!(interp.get_variable("summary").is_some());
+}

@@ -213,7 +213,6 @@ pub enum Statement {
     Insight {
         source: Expression,
         destination: Expression,
-
     },
     WordCloud {
         source: Expression,
@@ -269,6 +268,12 @@ pub enum Statement {
     Call {
         library: Expression,
         function: Expression,
+        args: Vec<Expression>,
+        destination: Expression,
+    },
+    CallMethod {
+        object: Expression,
+        method: Expression,
         args: Vec<Expression>,
         destination: Expression,
     },
