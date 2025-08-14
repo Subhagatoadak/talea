@@ -44,6 +44,8 @@ impl Parser {
             Some(Token::Count) => self.parse_count_statement(),
             Some(Token::Concordance) | Some(Token::KWIC) => self.parse_concordance_statement(),
             Some(Token::Tag) => self.parse_tag_statement(),
+            Some(Token::Translate) => self.parse_translate_statement(),
+            Some(Token::Sentiment) => self.parse_sentiment_statement(),
             Some(Token::Import) => self.parse_import_statement(),
             Some(Token::Install) => self.parse_install_statement(),
             Some(Token::Call) => self.parse_call_statement(),
@@ -215,6 +217,31 @@ impl Parser {
         Ok(Statement::Tag {
             source,
             method,
+            destination,
+        })
+    }
+
+    fn parse_translate_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let source = self.parse_expression()?;
+        self.consume(Token::To)?;
+        let language = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Translate {
+            source,
+            language,
+            destination,
+        })
+    }
+
+    fn parse_sentiment_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let source = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Sentiment {
+            source,
             destination,
         })
     }

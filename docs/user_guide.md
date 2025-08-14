@@ -45,6 +45,8 @@ concordance "rust" in article as hits
 tag article with ner as entities
 summarize article as summary
 filter tokens containing "rust" as rust_tokens
+translate article to "spanish" as es_article
+sentiment article as mood
 ```
 
 ## 5. Variables and Arithmetic

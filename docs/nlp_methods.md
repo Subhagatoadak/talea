@@ -25,12 +25,12 @@ This serves as an exhaustive reference for the language. Commands marked as
 | TF–IDF | `tfidf` | Planned |
 | N‑grams | `ngrams` | Planned |
 | Collocations | `collocate` | Planned |
-| Sentiment Analysis | `sentiment` | Planned |
+| Sentiment Analysis | `sentiment` | Implemented |
 | Dependency Parsing | `parse` | Planned |
 | Topic Modeling (LDA) | `topicmodel` | Planned |
 | Word Embeddings | `embed` | Planned |
 | Similarity / Distance | `similarity` | Planned |
-| Translation | `translate` | Planned |
+| Translation | `translate` | Implemented |
 | Text Generation | `openai` | Implemented |
 
 Contributions implementing any of the *Planned* commands are welcome.

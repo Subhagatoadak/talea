@@ -19,6 +19,8 @@
 | `concordance` | Find keyword-in-context occurrences | `concordance "rust" in article as hits` |
 | `tag` | Apply NLP tagging (POS or NER) | `tag article with ner as entities` |
 | `summarize` | Summarize text | `summarize article as summary` |
+| `translate` | Translate text to another language | `translate article to "spanish" as es_article` |
+| `sentiment` | Analyze sentiment of text | `sentiment article as mood` |
 | `filter` | Filter list items by a condition | `filter tokens containing "rust" as rust_tokens` |
 | `define` | Create a variable | `define threshold as 10` |
 | `set environment variable` | Set an OS environment variable | `set environment variable API_KEY to "123"` |

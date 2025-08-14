@@ -118,6 +118,15 @@ pub enum Statement {
         method: Expression,
         destination: Expression,
     },
+    Translate {
+        source: Expression,
+        language: Expression,
+        destination: Expression,
+    },
+    Sentiment {
+        source: Expression,
+        destination: Expression,
+    },
     Arithmetic {
         op: ArithmeticOp,
         value: Expression,
