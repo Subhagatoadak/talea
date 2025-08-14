@@ -131,6 +131,15 @@ pub enum Statement {
         source: Expression,
         destination: Expression,
     },
+    Shapiro {
+        column: Expression,
+        data: Expression,
+        destination: Expression,
+    },
+    Kolmogorov {
+        column: Expression,
+        data: Expression,
+
     Mean {
         column: Expression,
         source: Expression,
@@ -154,6 +163,7 @@ pub enum Statement {
     Kurtosis {
         column: Expression,
         source: Expression,
+
         destination: Expression,
     },
     Arithmetic {

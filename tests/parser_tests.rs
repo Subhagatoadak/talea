@@ -121,3 +121,29 @@ fn test_parse_search() {
         }
     );
 }
+
+#[test]
+fn test_parse_shapiro() {
+    let statements = parse("shapiro column height in data as result");
+    assert_eq!(
+        statements[0],
+        Statement::Shapiro {
+            column: Expression::Identifier("height".to_string()),
+            data: Expression::Identifier("data".to_string()),
+            destination: Expression::Identifier("result".to_string()),
+        }
+    );
+}
+
+#[test]
+fn test_parse_kolmogorov() {
+    let statements = parse("kolmogorov column height in data as result");
+    assert_eq!(
+        statements[0],
+        Statement::Kolmogorov {
+            column: Expression::Identifier("height".to_string()),
+            data: Expression::Identifier("data".to_string()),
+            destination: Expression::Identifier("result".to_string()),
+        }
+    );
+}

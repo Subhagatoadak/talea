@@ -132,3 +132,39 @@ fn test_search_tokens() {
         ]
     );
 }
+
+#[test]
+fn test_shapiro_tokens() {
+    let tokens = lex("shapiro column height in data as result");
+    assert_eq!(
+        tokens,
+        vec![
+            Token::Shapiro,
+            Token::Identifier("column".to_string()),
+            Token::Identifier("height".to_string()),
+            Token::In,
+            Token::Identifier("data".to_string()),
+            Token::As,
+            Token::Identifier("result".to_string()),
+            Token::Eof,
+        ]
+    );
+}
+
+#[test]
+fn test_kolmogorov_tokens() {
+    let tokens = lex("kolmogorov column height in data as result");
+    assert_eq!(
+        tokens,
+        vec![
+            Token::Kolmogorov,
+            Token::Identifier("column".to_string()),
+            Token::Identifier("height".to_string()),
+            Token::In,
+            Token::Identifier("data".to_string()),
+            Token::As,
+            Token::Identifier("result".to_string()),
+            Token::Eof,
+        ]
+    );
+}

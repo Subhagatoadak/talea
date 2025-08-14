@@ -9,6 +9,7 @@ pub mod interpreter;
 pub enum TaleaValue {
     String(String),
     Number(i64),
+    Float(f64),
     List(Vec<TaleaValue>),
     Tuple(Vec<TaleaValue>),
     Table(Vec<HashMap<String, TaleaValue>>),
