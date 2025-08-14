@@ -44,8 +44,10 @@ Fit a simple linear regression with statsmodels.
 
 ```talea
 use python
+import python "warnings" as warnings
 import python "pandas" as pd
 import python "statsmodels.formula.api" as smf
+call warnings filterwarnings "ignore"
 call pd read_csv "examples/sample_data.csv" as data
 call smf ols "y ~ x" data as model
 callmethod model fit as fitted

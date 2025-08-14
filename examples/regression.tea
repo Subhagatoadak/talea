@@ -1,9 +1,11 @@
 # Fit a linear regression using statsmodels
 use python
+import python "warnings" as warnings
 import python "pandas" as pd
 import python "statsmodels.formula.api" as smf
+call warnings filterwarnings "ignore"
 call pd read_csv "sample_data.csv" as data
 call smf ols "y ~ x" data as model
 callmethod model fit as fit
-callmethod fit params as params
-print params
+callmethod fit summary as summary
+print summary
