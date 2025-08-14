@@ -62,6 +62,10 @@ pub enum Statement {
         source: Expression,
         destination: Expression,
     },
+    Doc2Bow {
+        source: Expression,
+        destination: Expression,
+    },
     Split {
         unit: Expression,
         source: Expression,

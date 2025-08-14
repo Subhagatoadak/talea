@@ -32,6 +32,7 @@ impl Parser {
             Some(Token::Save) => self.parse_save_statement(),
             Some(Token::Print) => self.parse_print_statement(),
             Some(Token::Tokenize) => self.parse_tokenize_statement(),
+            Some(Token::Doc2Bow) => self.parse_doc2bow_statement(),
             Some(Token::Split) => self.parse_split_statement(),
             Some(Token::Join) => self.parse_join_statement(),
             Some(Token::Replace) => self.parse_replace_statement(),
@@ -84,6 +85,17 @@ impl Parser {
         self.consume(Token::As)?;
         let destination = self.parse_identifier_expression()?;
         Ok(Statement::Tokenize {
+            source,
+            destination,
+        })
+    }
+
+    fn parse_doc2bow_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let source = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Doc2Bow {
             source,
             destination,
         })
