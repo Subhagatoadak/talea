@@ -238,6 +238,15 @@ impl Interpreter {
                 source,
                 destination,
             } => self.execute_summarize_statement(source, destination),
+            Statement::Regress {
+                target,
+                features,
+                source,
+                destination,
+                with_openai,
+            } => {
+                self.execute_regress_statement(target, features, source, destination, *with_openai)
+            }
             Statement::Tag {
                 source,
                 method,
@@ -480,6 +489,64 @@ impl Interpreter {
                 );
             }
         }
+        Ok(())
+    }
+
+    fn execute_regress_statement(
+        &mut self,
+        target: &Expression,
+        features: &Vec<Expression>,
+        source: &Expression,
+        destination: &Expression,
+        with_openai: bool,
+    ) -> std::result::Result<(), String> {
+        let target_name = self.get_identifier_name(target)?;
+        let feature_names = features
+            .iter()
+            .map(|e| self.get_identifier_name(e))
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        let data_val = self.evaluate_expression(source)?;
+        let csv_content = if let TaleaValue::String(s) = data_val {
+            s
+        } else {
+            return Err("Regression expects the data source to be a CSV string".to_string());
+        };
+        let dest_name = self.get_identifier_name(destination)?;
+
+        let summary = Python::with_gil(|py| -> PyResult<String> {
+            let code = r#"
+import pandas as pd, statsmodels.api as sm, io
+def run_regression(csv, target, features):
+    df = pd.read_csv(io.StringIO(csv))
+    X = sm.add_constant(df[features])
+    y = df[target]
+    model = sm.OLS(y, X).fit()
+    return model.summary().as_text()
+"#;
+            let module = PyModule::from_code_bound(py, code, "regress_mod", "regress_mod")?;
+            let func = module.getattr("run_regression")?;
+            func.call1((csv_content, target_name, feature_names))?
+                .extract()
+        })
+        .map_err(|e| format!("Python error: {}", e))?;
+
+        self.environment
+            .define(dest_name.clone(), TaleaValue::String(summary.clone()));
+        println!(
+            "[Interpreter: Stored regression summary in '{}']",
+            dest_name
+        );
+
+        if with_openai {
+            let prompt = format!(
+                "Interpret the following regression model summary:\n{}",
+                summary
+            );
+            let pipeline = OpenAiPipeline::from_env("gpt-3.5-turbo".to_string())?;
+            let response = pipeline.ask(&prompt)?;
+            println!("[OpenAI Interpretation]\n{}", response);
+        }
+
         Ok(())
     }
 

@@ -132,3 +132,26 @@ fn test_search_tokens() {
         ]
     );
 }
+
+#[test]
+fn test_regress_tokens() {
+    let tokens = lex("regress y using x1, x2 in data as model with openai");
+    assert_eq!(
+        tokens,
+        vec![
+            Token::Regress,
+            Token::Identifier("y".to_string()),
+            Token::Using,
+            Token::Identifier("x1".to_string()),
+            Token::Comma,
+            Token::Identifier("x2".to_string()),
+            Token::In,
+            Token::Identifier("data".to_string()),
+            Token::As,
+            Token::Identifier("model".to_string()),
+            Token::With,
+            Token::Identifier("openai".to_string()),
+            Token::Eof,
+        ]
+    );
+}
