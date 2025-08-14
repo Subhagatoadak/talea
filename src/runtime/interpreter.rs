@@ -15,6 +15,7 @@ use crate::ast::{ArithmeticOp, Backend, ComparisonOp, Expression, FilterConditio
 use crate::lexer::Token;
 use crate::openai_pipeline::OpenAiPipeline;
 use crate::runtime::{Environment, TaleaValue};
+use serde_json::Value as JsonValue;
 use std::process::Command;
 
 pub struct Interpreter {
@@ -353,6 +354,10 @@ impl Interpreter {
                 source,
                 destination,
             } => self.execute_summarize_statement(source, destination),
+            Statement::Insight {
+                source,
+                destination,
+            } => self.execute_insight_statement(source, destination),
             Statement::Tag {
                 source,
                 method,
@@ -653,6 +658,28 @@ impl Interpreter {
                 );
             }
         }
+        Ok(())
+    }
+
+    fn execute_insight_statement(
+        &mut self,
+        source: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let value = self.evaluate_expression(source)?;
+        let json_val = Interpreter::talea_value_to_json(&value);
+        let serialized =
+            serde_json::to_string(&json_val).map_err(|e| format!("Serialization error: {}", e))?;
+        let prompt = format!(
+            "Provide narrative insights for the following data: {}",
+            serialized
+        );
+        let pipeline = OpenAiPipeline::from_env("gpt-3.5-turbo")?;
+        let response = pipeline.ask(&prompt)?;
+        let dest_name = self.get_identifier_name(destination)?;
+        self.environment
+            .define(dest_name, TaleaValue::String(response.clone()));
+        println!("{}", response);
         Ok(())
     }
 
@@ -2187,6 +2214,20 @@ impl Interpreter {
             TaleaValue::List(vals)
         } else {
             TaleaValue::Null
+        }
+    }
+
+    fn talea_value_to_json(value: &TaleaValue) -> JsonValue {
+        match value {
+            TaleaValue::String(s) => JsonValue::String(s.clone()),
+            TaleaValue::Number(n) => JsonValue::Number((*n).into()),
+            TaleaValue::List(l) | TaleaValue::Tuple(l) => JsonValue::Array(
+                l.iter()
+                    .map(|v| Interpreter::talea_value_to_json(v))
+                    .collect(),
+            ),
+            TaleaValue::Unit(t) => JsonValue::String(format!("{:?}", t)),
+            TaleaValue::Null => JsonValue::Null,
         }
     }
 

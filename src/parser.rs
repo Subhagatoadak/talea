@@ -26,6 +26,7 @@ impl Parser {
         match self.current_token() {
             Some(Token::Use) => self.parse_use_statement(),
             Some(Token::Summarize) => self.parse_summarize_statement(),
+            Some(Token::Insight) => self.parse_insight_statement(),
             Some(Token::Lemmatize) => self.parse_lemmatize_statement(),
             Some(Token::Filter) => self.parse_filter_statement(),
             Some(Token::Load) => self.parse_load_statement(),
@@ -772,6 +773,24 @@ impl Parser {
             destination,
         })
     }
+    fn parse_insight_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let source = self.parse_expression()?;
+        self.consume(Token::With)?;
+        // Expect the identifier 'openai'
+        match self.current_token() {
+            Some(Token::Identifier(s)) if s.eq_ignore_ascii_case("openai") => {
+                self.advance();
+            }
+            _ => return Err("Expected 'openai' after 'using'".to_string()),
+        }
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Insight {
+            source,
+            destination,
+        })
+    }
     fn parse_lemmatize_statement(&mut self) -> Result<Statement, String> {
         self.advance();
         let source = self.parse_expression()?;
@@ -1036,5 +1055,19 @@ mod tests {
             "{}",
             err
         );
+    }
+
+    #[test]
+    fn parse_insight_command() {
+        let mut lexer = Lexer::new("insight result using openai as explanation");
+        let tokens = lexer.all_tokens();
+        let mut parser = Parser::new(tokens);
+        let stmts = parser.parse().expect("failed to parse");
+        assert!(matches!(
+            &stmts[0],
+            Statement::Insight { source, destination }
+            if matches!(source, Expression::Identifier(s) if s == "result") &&
+               matches!(destination, Expression::Identifier(s) if s == "explanation")
+        ));
     }
 }

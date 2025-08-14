@@ -185,6 +185,10 @@ pub enum Statement {
         source: Expression,
         destination: Expression,
     }, // New
+    Insight {
+        source: Expression,
+        destination: Expression,
+    },
     WordCloud {
         source: Expression,
         destination: Expression,
