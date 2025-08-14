@@ -46,6 +46,11 @@ pub enum Token {
     Tally,
     Measure,
     Calculate,
+    Mean,
+    Median,
+    Mode,
+    Skewness,
+    Kurtosis,
     Get,
     Rank,
     Find,
@@ -67,6 +72,7 @@ pub enum Token {
     Correlate,
     Compare,
     Summarize,
+    Insight,
     Sentiment,
     Translate,
     Sort,
@@ -76,7 +82,17 @@ pub enum Token {
     Association,
     Similarity,
     SemanticSearch,
+
     Regress,
+
+    TTest,
+    Anova,
+    MedianTest,
+
+    Shapiro,
+    Kolmogorov,
+
+
     Add,
     Subtract,
     Multiply,
@@ -137,7 +153,7 @@ pub enum Token {
     Ngrams,
     URL,
     JSON,
-    CSV,
+    CSV, // tabular data source
     XML,
     First,
     Last,
@@ -262,6 +278,11 @@ impl<'a> Lexer<'a> {
             "lowercase" => Token::Lowercase,
             "uppercase" => Token::Uppercase,
             "count" | "tally" | "measure" | "calculate" => Token::Count,
+            "mean" => Token::Mean,
+            "median" => Token::Median,
+            "mode" => Token::Mode,
+            "skewness" => Token::Skewness,
+            "kurtosis" => Token::Kurtosis,
             "get" => Token::Get,
             "rank" => Token::Rank,
             "find" | "locate" | "extract" | "match" => Token::Find,
@@ -277,6 +298,7 @@ impl<'a> Lexer<'a> {
             "correlate" => Token::Correlate,
             "compare" => Token::Compare,
             "summarize" => Token::Summarize,
+            "insight" => Token::Insight,
             "sentiment" => Token::Sentiment,
             "translate" => Token::Translate,
             "sort" | "order" => Token::Sort,
@@ -285,7 +307,18 @@ impl<'a> Lexer<'a> {
             "association" => Token::Association,
             "similarity" => Token::Similarity,
             "semanticsearch" | "semantic_search" => Token::SemanticSearch,
+
             "regress" => Token::Regress,
+
+
+            "ttest" | "t_test" => Token::TTest,
+            "anova" => Token::Anova,
+            "median_test" | "mediantest" => Token::MedianTest,
+
+            "shapiro" => Token::Shapiro,
+            "kolmogorov" => Token::Kolmogorov,
+
+
             "add" => Token::Add,
             "subtract" => Token::Subtract,
             "multiply" => Token::Multiply,
@@ -332,8 +365,12 @@ impl<'a> Lexer<'a> {
             "into" => Token::Into,
             "on" => Token::On,
             "by" => Token::By,
+
             "with" => Token::With,
             "using" => Token::Using,
+
+            "with" | "using" => Token::With,
+
             "containing" => Token::Containing,
             "starting_with" => Token::StartingWith,
             "ending_with" => Token::EndingWith,

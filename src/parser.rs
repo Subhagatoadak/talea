@@ -26,7 +26,11 @@ impl Parser {
         match self.current_token() {
             Some(Token::Use) => self.parse_use_statement(),
             Some(Token::Summarize) => self.parse_summarize_statement(),
+
             Some(Token::Regress) => self.parse_regress_statement(),
+
+            Some(Token::Insight) => self.parse_insight_statement(),
+
             Some(Token::Lemmatize) => self.parse_lemmatize_statement(),
             Some(Token::Filter) => self.parse_filter_statement(),
             Some(Token::Load) => self.parse_load_statement(),
@@ -52,6 +56,27 @@ impl Parser {
             Some(Token::Tag) => self.parse_tag_statement(),
             Some(Token::Translate) => self.parse_translate_statement(),
             Some(Token::Sentiment) => self.parse_sentiment_statement(),
+
+            Some(Token::TTest) | Some(Token::Anova) | Some(Token::MedianTest) => {
+                self.parse_stat_test_statement()
+            }
+            Some(Token::Identifier(s))
+                if ["one", "two", "paired"].contains(&s.to_lowercase().as_str()) =>
+            {
+                self.parse_stat_test_statement()
+            }
+
+
+            Some(Token::Shapiro) => self.parse_shapiro_statement(),
+            Some(Token::Kolmogorov) => self.parse_kolmogorov_statement(),
+
+            Some(Token::Mean) => self.parse_mean_statement(),
+            Some(Token::Median) => self.parse_median_statement(),
+            Some(Token::Mode) => self.parse_mode_statement(),
+            Some(Token::Skewness) => self.parse_skewness_statement(),
+            Some(Token::Kurtosis) => self.parse_kurtosis_statement(),
+
+
             Some(Token::Import) => self.parse_import_statement(),
             Some(Token::Install) => self.parse_install_statement(),
             Some(Token::Call) => self.parse_call_statement(),
@@ -81,10 +106,18 @@ impl Parser {
     // Command Parsers with Context-Aware Logic
     fn parse_load_statement(&mut self) -> Result<Statement, String> {
         self.advance();
-        let source = self.parse_expression()?;
-        self.consume(Token::As)?;
-        let alias = self.parse_identifier_expression()?;
-        Ok(Statement::Load { source, alias })
+        if self.current_token() == Some(&Token::CSV) {
+            self.advance();
+            let path = self.parse_expression()?;
+            self.consume(Token::As)?;
+            let alias = self.parse_identifier_expression()?;
+            Ok(Statement::LoadCsv { path, alias })
+        } else {
+            let source = self.parse_expression()?;
+            self.consume(Token::As)?;
+            let alias = self.parse_identifier_expression()?;
+            Ok(Statement::Load { source, alias })
+        }
     }
 
     fn parse_tokenize_statement(&mut self) -> Result<Statement, String> {
@@ -250,6 +283,178 @@ impl Parser {
             source,
             destination,
         })
+    }
+
+
+    fn parse_stat_test_statement(&mut self) -> Result<Statement, String> {
+        // optional sample descriptor
+        let mut sample: Option<String> = None;
+        if let Some(Token::Identifier(s)) = self.current_token().cloned() {
+            if ["one", "two", "paired"].contains(&s.to_lowercase().as_str()) {
+                sample = Some(s.to_lowercase());
+                self.advance();
+                self.consume(Token::Sample)?;
+            }
+        }
+        match self.current_token() {
+            Some(Token::TTest) => {
+                self.advance();
+                self.consume_identifier("column")?;
+                let column = self.parse_identifier_expression()?;
+                self.consume_identifier("between")?;
+                let group1 = self.parse_identifier_expression()?;
+                self.consume_identifier("and")?;
+                let group2 = self.parse_identifier_expression()?;
+                self.consume(Token::As)?;
+                let destination = self.parse_identifier_expression()?;
+                Ok(Statement::TTest {
+                    sample,
+                    column,
+                    group1,
+                    group2,
+                    destination,
+                })
+            }
+            Some(Token::Anova) => {
+                self.advance();
+                self.consume_identifier("column")?;
+                let column = self.parse_identifier_expression()?;
+                self.consume_identifier("between")?;
+                let group1 = self.parse_identifier_expression()?;
+                self.consume_identifier("and")?;
+                let group2 = self.parse_identifier_expression()?;
+                self.consume(Token::As)?;
+                let destination = self.parse_identifier_expression()?;
+                Ok(Statement::Anova {
+                    column,
+                    group1,
+                    group2,
+                    destination,
+                })
+            }
+            Some(Token::MedianTest) => {
+                self.advance();
+                self.consume_identifier("column")?;
+                let column = self.parse_identifier_expression()?;
+                self.consume_identifier("between")?;
+                let group1 = self.parse_identifier_expression()?;
+                self.consume_identifier("and")?;
+                let group2 = self.parse_identifier_expression()?;
+                self.consume(Token::As)?;
+                let destination = self.parse_identifier_expression()?;
+                Ok(Statement::MedianTest {
+                    column,
+                    group1,
+                    group2,
+                    destination,
+                })
+            }
+            _ => Err("Expected statistical test".to_string()),
+        }
+
+
+    fn parse_shapiro_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        match self.current_token() {
+            Some(Token::Identifier(s)) if s.eq_ignore_ascii_case("column") => self.advance(),
+            _ => return Err("Expected 'column' after 'shapiro'".to_string()),
+        }
+        let column = self.parse_identifier_expression()?;
+        self.consume(Token::In)?;
+        let data = self.parse_identifier_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Shapiro {
+            column,
+            data,
+
+    fn parse_mean_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let column = self.parse_identifier_expression()?;
+        self.consume(Token::In)?;
+        let source = self.parse_identifier_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Mean {
+            column,
+            source,
+
+            destination,
+        })
+    }
+
+
+    fn parse_kolmogorov_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        match self.current_token() {
+            Some(Token::Identifier(s)) if s.eq_ignore_ascii_case("column") => self.advance(),
+            _ => return Err("Expected 'column' after 'kolmogorov'".to_string()),
+        }
+        let column = self.parse_identifier_expression()?;
+        self.consume(Token::In)?;
+        let data = self.parse_identifier_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Kolmogorov {
+            column,
+            data,
+
+    fn parse_median_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let column = self.parse_identifier_expression()?;
+        self.consume(Token::In)?;
+        let source = self.parse_identifier_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Median {
+            column,
+            source,
+            destination,
+        })
+    }
+
+    fn parse_mode_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let column = self.parse_identifier_expression()?;
+        self.consume(Token::In)?;
+        let source = self.parse_identifier_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Mode {
+            column,
+            source,
+            destination,
+        })
+    }
+
+    fn parse_skewness_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let column = self.parse_identifier_expression()?;
+        self.consume(Token::In)?;
+        let source = self.parse_identifier_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Skewness {
+            column,
+            source,
+            destination,
+        })
+    }
+
+    fn parse_kurtosis_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let column = self.parse_identifier_expression()?;
+        self.consume(Token::In)?;
+        let source = self.parse_identifier_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Kurtosis {
+            column,
+            source,
+
+            destination,
+        })
+
     }
 
     fn parse_count_statement(&mut self) -> Result<Statement, String> {
@@ -607,6 +812,24 @@ impl Parser {
             destination,
         })
     }
+    fn parse_insight_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let source = self.parse_expression()?;
+        self.consume(Token::With)?;
+        // Expect the identifier 'openai'
+        match self.current_token() {
+            Some(Token::Identifier(s)) if s.eq_ignore_ascii_case("openai") => {
+                self.advance();
+            }
+            _ => return Err("Expected 'openai' after 'using'".to_string()),
+        }
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Insight {
+            source,
+            destination,
+        })
+    }
     fn parse_lemmatize_statement(&mut self) -> Result<Statement, String> {
         self.advance();
         let source = self.parse_expression()?;
@@ -785,6 +1008,21 @@ impl Parser {
         )
     }
 
+    fn consume_identifier(&mut self, expected: &str) -> Result<(), String> {
+        match self.current_token() {
+            Some(Token::Identifier(s)) if s.eq_ignore_ascii_case(expected) => {
+                self.advance();
+                Ok(())
+            }
+            Some(tok) => Err(format!(
+                "Expected '{}' but found {}",
+                expected,
+                token_to_string(tok)
+            )),
+            None => Err(format!("Expected '{}' but found end of input", expected)),
+        }
+    }
+
     fn current_token(&self) -> Option<&Token> {
         self.tokens.get(self.position)
     }
@@ -856,5 +1094,19 @@ mod tests {
             "{}",
             err
         );
+    }
+
+    #[test]
+    fn parse_insight_command() {
+        let mut lexer = Lexer::new("insight result using openai as explanation");
+        let tokens = lexer.all_tokens();
+        let mut parser = Parser::new(tokens);
+        let stmts = parser.parse().expect("failed to parse");
+        assert!(matches!(
+            &stmts[0],
+            Statement::Insight { source, destination }
+            if matches!(source, Expression::Identifier(s) if s == "result") &&
+               matches!(destination, Expression::Identifier(s) if s == "explanation")
+        ));
     }
 }
