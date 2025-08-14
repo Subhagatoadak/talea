@@ -776,31 +776,62 @@ impl Interpreter {
         };
         let dest_name = self.get_identifier_name(destination)?;
 
-        let summary = Python::with_gil(|py| -> PyResult<String> {
+        let chart_path = format!("{}_chart.png", dest_name);
+        let result_json = Python::with_gil(|py| -> PyResult<String> {
             let code = r#"
-import pandas as pd, statsmodels.api as sm, io
-def run_regression(csv, target, features):
+import io, json
+import pandas as pd
+import statsmodels.api as sm
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+def run_regression(csv, target, features, chart_path):
     df = pd.read_csv(io.StringIO(csv))
     X = sm.add_constant(df[features])
     y = df[target]
     model = sm.OLS(y, X).fit()
-    return model.summary().as_text()
+    predictions = model.predict(X)
+    metrics = {
+        "r_squared": model.rsquared,
+        "mape": float((abs((y - predictions) / y).mean())),
+        "rmse": float(((y - predictions) ** 2).mean() ** 0.5),
+    }
+    coeffs = model.params.to_dict()
+    fig, ax = plt.subplots()
+    ax.scatter(y, predictions)
+    ax.plot([y.min(), y.max()], [y.min(), y.max()], 'r--')
+    ax.set_xlabel('Actual')
+    ax.set_ylabel('Predicted')
+    fig.savefig(chart_path)
+    plt.close(fig)
+    result = {
+        "summary": model.summary().as_text(),
+        "coefficients": coeffs,
+        "predictions": predictions.tolist(),
+        "metrics": metrics,
+    }
+    return json.dumps(result)
 "#;
             let module = PyModule::from_code_bound(py, code, "regress_mod", "regress_mod")?;
             let func = module.getattr("run_regression")?;
-            func.call1((csv_content, target_name, feature_names))?
+            func.call1((csv_content, target_name, feature_names, chart_path.clone()))?
                 .extract()
         })
         .map_err(|e| format!("Python error: {}", e))?;
 
         self.environment
-            .define(dest_name.clone(), TaleaValue::String(summary.clone()));
-        println!(
-            "[Interpreter: Stored regression summary in '{}']",
-            dest_name
-        );
+            .define(dest_name.clone(), TaleaValue::String(result_json.clone()));
+        println!("[Interpreter: Stored regression result in '{}']", dest_name);
 
         if with_openai {
+            let summary = serde_json::from_str::<serde_json::Value>(&result_json)
+                .ok()
+                .and_then(|v| {
+                    v.get("summary")
+                        .and_then(|s| s.as_str())
+                        .map(|s| s.to_string())
+                })
+                .unwrap_or_default();
             let prompt = format!(
                 "Interpret the following regression model summary:\n{}",
                 summary

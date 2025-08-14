@@ -98,6 +98,18 @@ callmethod model summary as summary
 print summary
 ```
 
+### Talea command
+You can also use Talea's built-in `regress` statement, which returns a JSON string
+containing the model summary, coefficients, predictions, evaluation metrics
+(`r_squared`, `mape`, `rmse`). It also saves an actual-vs-predicted chart to
+`<destination>_chart.png`, where `<destination>` is the variable name on the
+right-hand side of the statement.
+
+```talea
+load "examples/sample_data.csv" as data
+regress y using x in data as model
+```
+
 ## OpenAI Insights
 Turn numeric results into prose using OpenAI.
 
