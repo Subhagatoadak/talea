@@ -33,4 +33,26 @@ This serves as an exhaustive reference for the language. Commands marked as
 | Translation | `translate` | Implemented |
 | Text Generation | `openai` | Implemented |
 
+## Example Usage
+
+Start the Talea REPL from the project root:
+
+```bash
+cargo run
+```
+
+Once the prompt appears, the following commands demonstrate a complete
+NLP workflow:
+
+```talea
+load "article.txt" as article
+tokenize article as tokens
+tag article with ner as entities
+summarize article as summary
+save summary to "summary.txt"
+```
+
+This snippet loads a text file, splits it into tokens, identifies named
+entities, summarizes the content, and writes the result to disk.
+
 Contributions implementing any of the *Planned* commands are welcome.
