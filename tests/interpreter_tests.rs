@@ -130,10 +130,18 @@ fn test_save_and_load_talea_object() {
 fn test_python_dataframe_conversion() {
     let script = r#"
         use python
+        install python "pandas"
         import python "pandas" as pd
         call pd read_csv "examples/sample_data.csv" as data
     "#;
-    let interp = run_script(script).unwrap();
+    let interp = match run_script(script) {
+        Ok(i) => i,
+        Err(e) if e.contains("pip install pandas") => {
+            println!("skipping test: {e}");
+            return;
+        }
+        Err(e) => panic!("unexpected error: {e}"),
+    };
     match interp.get_variable("data") {
         Some(TaleaValue::PyObject(_)) => {}
         other => panic!("expected PyObject, got {:?}", other),
@@ -144,12 +152,40 @@ fn test_python_dataframe_conversion() {
 fn test_callmethod_describe() {
     let script = r#"
         use python
+        install python "pandas"
         import python "pandas" as pd
         call pd read_csv "examples/sample_data.csv" as data
         callmethod data describe as summary
     "#;
-    let interp = run_script(script).unwrap();
+    let interp = match run_script(script) {
+        Ok(i) => i,
+        Err(e) if e.contains("pip install pandas") => {
+            println!("skipping test: {e}");
+            return;
+        }
+        Err(e) => panic!("unexpected error: {e}"),
+    };
     assert!(interp.get_variable("summary").is_some());
+}
+
+#[test]
+fn test_callmethod_dunder() {
+    let script = r#"
+        use python
+        install python "pandas"
+        import python "pandas" as pd
+        call pd read_csv "examples/sample_data.csv" as data
+        callmethod data __getitem__ "y" as column
+    "#;
+    let interp = match run_script(script) {
+        Ok(i) => i,
+        Err(e) if e.contains("pip install pandas") => {
+            println!("skipping test: {e}");
+            return;
+        }
+        Err(e) => panic!("unexpected error: {e}"),
+    };
+    assert!(interp.get_variable("column").is_some());
 }
 
 #[test]
