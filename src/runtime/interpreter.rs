@@ -231,7 +231,6 @@ impl Interpreter {
         Ok(())
     }
 
-
     fn execute_compare_statement(
         &mut self,
         left: &Expression,
@@ -241,10 +240,8 @@ impl Interpreter {
         let left_val = self.evaluate_expression(left)?;
         let right_val = self.evaluate_expression(right)?;
         let dest_name = self.get_identifier_name(destination)?;
-        self.environment.define(
-            dest_name,
-            TaleaValue::Tuple(vec![left_val, right_val]),
-        );
+        self.environment
+            .define(dest_name, TaleaValue::Tuple(vec![left_val, right_val]));
         println!("[Interpreter: Compared values.]");
         Ok(())
     }
@@ -256,7 +253,8 @@ impl Interpreter {
     ) -> std::result::Result<(), String> {
         let dest_name = self.get_identifier_name(destination)?;
         let _value = self.evaluate_expression(source)?;
-        self.environment.define(dest_name, TaleaValue::String("average".to_string()));
+        self.environment
+            .define(dest_name, TaleaValue::String("average".to_string()));
         println!("[Interpreter: Averaged data.]");
         Ok(())
     }
@@ -268,7 +266,8 @@ impl Interpreter {
     ) -> std::result::Result<(), String> {
         let dest_name = self.get_identifier_name(destination)?;
         let _value = self.evaluate_expression(source)?;
-        self.environment.define(dest_name, TaleaValue::String("normal".to_string()));
+        self.environment
+            .define(dest_name, TaleaValue::String("normal".to_string()));
         println!("[Interpreter: Checked normality.]");
         Ok(())
     }
@@ -732,7 +731,6 @@ impl Interpreter {
         Ok(())
     }
 
-
     fn execute_regress_statement(
         &mut self,
         target: &Expression,
@@ -976,10 +974,7 @@ def run_regression(csv, target, features):
                 "kurtosis" => {
                     let arr = col.getattr("tolist")?.call0()?;
                     let stats = PyModule::import_bound(py, "scipy.stats")?;
-                    stats
-                        .getattr("kurtosis")?
-                        .call1((arr,))?
-                        .extract::<f64>()
+                    stats.getattr("kurtosis")?.call1((arr,))?.extract::<f64>()
                 }
                 _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>("bad func"))?,
             }
@@ -1375,10 +1370,40 @@ def run_regression(csv, target, features):
                     Err("R backend not enabled. Rebuild with `--features r`".to_string())
                 }
             }
-            None => Err(format!(
-                "Library '{}' not found. Did you import it?",
-                lib_name
-            )),
+            None => {
+                if let Some(TaleaValue::PyObject(obj)) = self.environment.get(&lib_name) {
+                    let result = Python::with_gil(|py| -> PyResult<TaleaValue> {
+                        let mut current: pyo3::Bound<'_, PyAny> = obj.bind(py).clone();
+                        for attr_name in func_name.split('.') {
+                            current = current.getattr(attr_name)?;
+                        }
+                        let py_args: Vec<PyObject> = arg_values
+                            .iter()
+                            .map(|v| Interpreter::talea_value_to_py(py, v))
+                            .collect();
+                        if current.is_callable() {
+                            let args_tuple = PyTuple::new_bound(py, py_args);
+                            let res = current.call1(args_tuple)?;
+                            Ok(Interpreter::py_obj_to_talea(res))
+                        } else {
+                            if !py_args.is_empty() {
+                                return Err(pyo3::exceptions::PyTypeError::new_err(
+                                    "Tried to call non-callable attribute with arguments",
+                                ));
+                            }
+                            Ok(Interpreter::py_obj_to_talea(current))
+                        }
+                    })
+                    .map_err(|e| format!("Python Error: {}", e))?;
+                    self.environment.define(dest_name, result);
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "Library '{}' not found. Did you import it?",
+                        lib_name
+                    ))
+                }
+            }
         }
     }
 
@@ -2160,7 +2185,6 @@ def run_regression(csv, target, features):
         }
     }
 
-
     fn get_number_list(
         &mut self,
         expression: &Expression,
@@ -2204,7 +2228,9 @@ def run_regression(csv, target, features):
                                             TaleaValue::Number(n) => nums.push(*n as f64),
                                             TaleaValue::Float(f) => nums.push(*f),
                                             _ => {
-                                                return Err("Column values must be numbers".to_string())
+                                                return Err(
+                                                    "Column values must be numbers".to_string()
+                                                );
                                             }
                                         }
                                     }
@@ -2223,7 +2249,9 @@ def run_regression(csv, target, features):
                                             TaleaValue::Number(n) => nums.push(*n as f64),
                                             TaleaValue::Float(f) => nums.push(*f),
                                             _ => {
-                                                return Err("Column values must be numbers".to_string())
+                                                return Err(
+                                                    "Column values must be numbers".to_string()
+                                                );
                                             }
                                         }
                                     }
@@ -2237,7 +2265,6 @@ def run_regression(csv, target, features):
             }
         }
         Err(format!("Column '{}' not found", col_name))
-
     }
 
     fn execute_if_statement(
@@ -2254,6 +2281,9 @@ def run_regression(csv, target, features):
             TaleaValue::List(ref l) => !l.is_empty(),
             TaleaValue::Tuple(ref t) => !t.is_empty(),
             TaleaValue::Table(ref rows) => !rows.is_empty(),
+            TaleaValue::PyObject(_) => true,
+            #[cfg(feature = "r")]
+            TaleaValue::RObject(_) => true,
             TaleaValue::Unit(_) => true,
             TaleaValue::Null => false,
         };
@@ -2306,6 +2336,7 @@ def run_regression(csv, target, features):
         match value {
             TaleaValue::String(s) => s.into_py(py),
             TaleaValue::Number(n) => n.into_py(py),
+            TaleaValue::PyObject(obj) => obj.clone_ref(py),
             TaleaValue::List(l) => {
                 let items: Vec<PyObject> = l
                     .iter()
@@ -2344,7 +2375,7 @@ def run_regression(csv, target, features):
                 .collect();
             TaleaValue::List(vals)
         } else {
-            TaleaValue::Null
+            TaleaValue::PyObject(obj.unbind())
         }
     }
 
@@ -2352,11 +2383,9 @@ def run_regression(csv, target, features):
         match value {
             TaleaValue::String(s) => JsonValue::String(s.clone()),
             TaleaValue::Number(n) => JsonValue::Number((*n).into()),
-            TaleaValue::Float(f) => {
-                serde_json::Number::from_f64(*f)
-                    .map(JsonValue::Number)
-                    .unwrap_or(JsonValue::Null)
-            }
+            TaleaValue::Float(f) => serde_json::Number::from_f64(*f)
+                .map(JsonValue::Number)
+                .unwrap_or(JsonValue::Null),
             TaleaValue::Table(rows) => {
                 let json_rows: Vec<JsonValue> = rows
                     .iter()
@@ -2376,6 +2405,9 @@ def run_regression(csv, target, features):
                     .collect(),
             ),
             TaleaValue::Unit(t) => JsonValue::String(format!("{:?}", t)),
+            TaleaValue::PyObject(_) => JsonValue::Null,
+            #[cfg(feature = "r")]
+            TaleaValue::RObject(_) => JsonValue::Null,
             TaleaValue::Null => JsonValue::Null,
         }
     }
@@ -2391,6 +2423,9 @@ def run_regression(csv, target, features):
                     .collect();
                 format!("c({})", elems.join(","))
             }
+            #[cfg(feature = "r")]
+            TaleaValue::RObject(_) => ".talea_tmp".to_string(),
+            TaleaValue::PyObject(_) => "NULL".to_string(),
             _ => "NULL".to_string(),
         }
     }
@@ -2445,6 +2480,9 @@ impl ToString for TaleaValue {
             TaleaValue::Table(rows) => {
                 format!("<Table with {} rows>", rows.len())
             }
+            TaleaValue::PyObject(_) => "<pyobject>".to_string(),
+            #[cfg(feature = "r")]
+            TaleaValue::RObject(_) => "<robj>".to_string(),
             TaleaValue::Unit(t) => format!("Unit: {:?}", t),
             TaleaValue::Null => "null".to_string(),
         }
