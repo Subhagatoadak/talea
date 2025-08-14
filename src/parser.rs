@@ -80,10 +80,18 @@ impl Parser {
     // Command Parsers with Context-Aware Logic
     fn parse_load_statement(&mut self) -> Result<Statement, String> {
         self.advance();
-        let source = self.parse_expression()?;
-        self.consume(Token::As)?;
-        let alias = self.parse_identifier_expression()?;
-        Ok(Statement::Load { source, alias })
+        if self.current_token() == Some(&Token::CSV) {
+            self.advance();
+            let path = self.parse_expression()?;
+            self.consume(Token::As)?;
+            let alias = self.parse_identifier_expression()?;
+            Ok(Statement::LoadCsv { path, alias })
+        } else {
+            let source = self.parse_expression()?;
+            self.consume(Token::As)?;
+            let alias = self.parse_identifier_expression()?;
+            Ok(Statement::Load { source, alias })
+        }
     }
 
     fn parse_tokenize_statement(&mut self) -> Result<Statement, String> {

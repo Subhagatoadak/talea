@@ -23,6 +23,18 @@ fn test_parse_load() {
 }
 
 #[test]
+fn test_parse_load_csv() {
+    let statements = parse("load csv \"tests/data/sample.csv\" as data");
+    assert_eq!(
+        statements[0],
+        Statement::LoadCsv {
+            path: Expression::StringLiteral("tests/data/sample.csv".to_string()),
+            alias: Expression::Identifier("data".to_string()),
+        }
+    );
+}
+
+#[test]
 fn test_parse_tokenize() {
     let statements = parse("tokenize article as tokens");
     assert_eq!(

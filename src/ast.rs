@@ -49,6 +49,10 @@ pub enum Statement {
         source: Expression,
         alias: Expression,
     },
+    LoadCsv {
+        path: Expression,
+        alias: Expression,
+    },
     Save {
         source: Expression,
         destination: Expression,
