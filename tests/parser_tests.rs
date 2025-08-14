@@ -123,6 +123,18 @@ fn test_parse_search() {
 }
 
 #[test]
+
+fn test_parse_ttest() {
+    let statements = parse("two sample ttest column score between group1 and group2 as t_result");
+    assert_eq!(
+        statements[0],
+        Statement::TTest {
+            sample: Some("two".to_string()),
+            column: Expression::Identifier("score".to_string()),
+            group1: Expression::Identifier("group1".to_string()),
+            group2: Expression::Identifier("group2".to_string()),
+            destination: Expression::Identifier("t_result".to_string()),
+
 fn test_parse_shapiro() {
     let statements = parse("shapiro column height in data as result");
     assert_eq!(
@@ -144,6 +156,7 @@ fn test_parse_kolmogorov() {
             column: Expression::Identifier("height".to_string()),
             data: Expression::Identifier("data".to_string()),
             destination: Expression::Identifier("result".to_string()),
+
         }
     );
 }

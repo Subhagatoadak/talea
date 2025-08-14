@@ -116,6 +116,19 @@ fn test_search_command() {
 
 #[test]
 
+fn test_ttest_command() {
+    let script = r#"
+        use python
+        define group1 as [1,2,3,4]
+        define group2 as [2,3,4,5]
+        two sample ttest column score between group1 and group2 as t_result
+    "#;
+    let interp = run_script(script);
+    match interp.get_variable("t_result") {
+        Some(TaleaValue::Tuple(t)) => assert_eq!(t.len(), 2),
+        _ => panic!("t_result not computed"),
+
+
 fn test_shapiro_command() {
     if std::process::Command::new("python")
         .args(["-c", "import scipy"])
@@ -208,6 +221,7 @@ fn test_load_csv_command() {
             );
         }
         _ => panic!("data not loaded"),
+
 
     }
 }

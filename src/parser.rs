@@ -52,6 +52,16 @@ impl Parser {
             Some(Token::Translate) => self.parse_translate_statement(),
             Some(Token::Sentiment) => self.parse_sentiment_statement(),
 
+            Some(Token::TTest) | Some(Token::Anova) | Some(Token::MedianTest) => {
+                self.parse_stat_test_statement()
+            }
+            Some(Token::Identifier(s))
+                if ["one", "two", "paired"].contains(&s.to_lowercase().as_str()) =>
+            {
+                self.parse_stat_test_statement()
+            }
+
+
             Some(Token::Shapiro) => self.parse_shapiro_statement(),
             Some(Token::Kolmogorov) => self.parse_kolmogorov_statement(),
 
@@ -60,6 +70,7 @@ impl Parser {
             Some(Token::Mode) => self.parse_mode_statement(),
             Some(Token::Skewness) => self.parse_skewness_statement(),
             Some(Token::Kurtosis) => self.parse_kurtosis_statement(),
+
 
             Some(Token::Import) => self.parse_import_statement(),
             Some(Token::Install) => self.parse_install_statement(),
@@ -270,6 +281,73 @@ impl Parser {
     }
 
 
+    fn parse_stat_test_statement(&mut self) -> Result<Statement, String> {
+        // optional sample descriptor
+        let mut sample: Option<String> = None;
+        if let Some(Token::Identifier(s)) = self.current_token().cloned() {
+            if ["one", "two", "paired"].contains(&s.to_lowercase().as_str()) {
+                sample = Some(s.to_lowercase());
+                self.advance();
+                self.consume(Token::Sample)?;
+            }
+        }
+        match self.current_token() {
+            Some(Token::TTest) => {
+                self.advance();
+                self.consume_identifier("column")?;
+                let column = self.parse_identifier_expression()?;
+                self.consume_identifier("between")?;
+                let group1 = self.parse_identifier_expression()?;
+                self.consume_identifier("and")?;
+                let group2 = self.parse_identifier_expression()?;
+                self.consume(Token::As)?;
+                let destination = self.parse_identifier_expression()?;
+                Ok(Statement::TTest {
+                    sample,
+                    column,
+                    group1,
+                    group2,
+                    destination,
+                })
+            }
+            Some(Token::Anova) => {
+                self.advance();
+                self.consume_identifier("column")?;
+                let column = self.parse_identifier_expression()?;
+                self.consume_identifier("between")?;
+                let group1 = self.parse_identifier_expression()?;
+                self.consume_identifier("and")?;
+                let group2 = self.parse_identifier_expression()?;
+                self.consume(Token::As)?;
+                let destination = self.parse_identifier_expression()?;
+                Ok(Statement::Anova {
+                    column,
+                    group1,
+                    group2,
+                    destination,
+                })
+            }
+            Some(Token::MedianTest) => {
+                self.advance();
+                self.consume_identifier("column")?;
+                let column = self.parse_identifier_expression()?;
+                self.consume_identifier("between")?;
+                let group1 = self.parse_identifier_expression()?;
+                self.consume_identifier("and")?;
+                let group2 = self.parse_identifier_expression()?;
+                self.consume(Token::As)?;
+                let destination = self.parse_identifier_expression()?;
+                Ok(Statement::MedianTest {
+                    column,
+                    group1,
+                    group2,
+                    destination,
+                })
+            }
+            _ => Err("Expected statistical test".to_string()),
+        }
+
+
     fn parse_shapiro_statement(&mut self) -> Result<Statement, String> {
         self.advance();
         match self.current_token() {
@@ -371,6 +449,7 @@ impl Parser {
 
             destination,
         })
+
     }
 
     fn parse_count_statement(&mut self) -> Result<Statement, String> {
@@ -869,6 +948,21 @@ impl Parser {
                 | Token::NER
                 | Token::Entities
         )
+    }
+
+    fn consume_identifier(&mut self, expected: &str) -> Result<(), String> {
+        match self.current_token() {
+            Some(Token::Identifier(s)) if s.eq_ignore_ascii_case(expected) => {
+                self.advance();
+                Ok(())
+            }
+            Some(tok) => Err(format!(
+                "Expected '{}' but found {}",
+                expected,
+                token_to_string(tok)
+            )),
+            None => Err(format!("Expected '{}' but found end of input", expected)),
+        }
     }
 
     fn current_token(&self) -> Option<&Token> {

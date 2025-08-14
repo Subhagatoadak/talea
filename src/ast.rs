@@ -208,6 +208,25 @@ pub enum Statement {
         source: Expression,
         destination: Expression,
     },
+    TTest {
+        sample: Option<String>,
+        column: Expression,
+        group1: Expression,
+        group2: Expression,
+        destination: Expression,
+    },
+    Anova {
+        column: Expression,
+        group1: Expression,
+        group2: Expression,
+        destination: Expression,
+    },
+    MedianTest {
+        column: Expression,
+        group1: Expression,
+        group2: Expression,
+        destination: Expression,
+    },
     Import {
         backend: Backend,
         module: Expression,

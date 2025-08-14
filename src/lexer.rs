@@ -81,8 +81,14 @@ pub enum Token {
     Association,
     Similarity,
     SemanticSearch,
+
+    TTest,
+    Anova,
+    MedianTest,
+
     Shapiro,
     Kolmogorov,
+
     Add,
     Subtract,
     Multiply,
@@ -295,8 +301,14 @@ impl<'a> Lexer<'a> {
             "association" => Token::Association,
             "similarity" => Token::Similarity,
             "semanticsearch" | "semantic_search" => Token::SemanticSearch,
+
+            "ttest" | "t_test" => Token::TTest,
+            "anova" => Token::Anova,
+            "median_test" | "mediantest" => Token::MedianTest,
+
             "shapiro" => Token::Shapiro,
             "kolmogorov" => Token::Kolmogorov,
+
             "add" => Token::Add,
             "subtract" => Token::Subtract,
             "multiply" => Token::Multiply,
