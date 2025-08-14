@@ -1,7 +1,9 @@
-# `call` Function Reference
+# `call` and `callmethod` Reference
 
-The `call` command runs functions from imported libraries or methods on objects.
-Use it to interact with Python or other backends while writing Talea scripts.
+Talea uses two commands for interfacing with external libraries.
+Use `call` to run functions from imported modules and `callmethod` to invoke
+methods on existing objects. Both integrate Python or other backends into
+Talea scripts.
 
 
 ## Two Ways to Run Code
