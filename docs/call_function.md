@@ -16,17 +16,21 @@ call <library> <function> [arguments] as <result>
 ```
 
 - **`<library>`** – alias from an earlier `import` command.
-- **`<function>`** – the function provided by that library.
 - **`[arguments]`** – optional values passed to the function.
 - **`<result>`** – variable that stores what the function returns.
 
-### Example
+### Examples
 
-
-```
+``` 
 use python
 import python "pandas" as pd
 call pd read_csv "examples/sample_data.csv" as data
+```
+
+``` 
+use r
+import r "stats" as stats
+call stats rnorm 5 as samples
 ```
 
 
@@ -65,11 +69,6 @@ the name is spelled the same.
 | `Function 'f' not found in library 'X'` | Wrong function name | Confirm the function or method exists and is spelled correctly. |
 | `Missing file or invalid path` | `read_csv` or similar could not find the file | Verify the file path and put it in quotes. |
 | `Type mismatch or argument error` | Arguments do not match the function signature | Review the required arguments and provide them in order. |
-
-| `Library 'X' not found. Did you import it?` | `<source>` is unknown | Import the library or check the variable name. |
-| `Function 'f' not found in library 'X'` | Wrong function name | Confirm the function or method exists and is spelled correctly. |
-| `Missing file or invalid path` | `read_csv` or similar could not find the file | Verify the file path and enclose it in quotes. |
-| `Type mismatch or argument error` | Arguments do not match function signature | Review the required arguments and provide them in the correct order. |
 
 
 ## Advanced Calls
