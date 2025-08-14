@@ -2,6 +2,7 @@ use talea::lexer::Lexer;
 use talea::parser::Parser;
 use talea::runtime::TaleaValue;
 use talea::runtime::interpreter::Interpreter;
+use pyo3::prelude::*;
 
 fn run_script(input: &str) -> Result<Interpreter, String> {
     let mut lexer = Lexer::new(input);
@@ -114,6 +115,7 @@ fn test_search_command() {
 }
 
 #[test]
+
 fn test_shapiro_command() {
     if std::process::Command::new("python")
         .args(["-c", "import scipy"])
@@ -186,5 +188,26 @@ fn test_kolmogorov_command() {
             }
         }
         _ => panic!("result not found"),
+
+fn test_load_csv_command() {
+    if Python::with_gil(|py| PyModule::import_bound(py, "pandas").is_err()) {
+        eprintln!("pandas not available, skipping test");
+        return;
+    }
+    let script = r#"
+        use python
+        load csv "tests/data/sample.csv" as data
+    "#;
+    let interp = run_script(script);
+    match interp.get_variable("data") {
+        Some(TaleaValue::Table(rows)) => {
+            assert_eq!(rows.len(), 2);
+            assert_eq!(
+                rows[0].get("name"),
+                Some(&TaleaValue::String("Alice".to_string()))
+            );
+        }
+        _ => panic!("data not loaded"),
+
     }
 }

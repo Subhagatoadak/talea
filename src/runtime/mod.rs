@@ -12,6 +12,7 @@ pub enum TaleaValue {
     Float(f64),
     List(Vec<TaleaValue>),
     Tuple(Vec<TaleaValue>),
+    Table(Vec<HashMap<String, TaleaValue>>),
     Unit(Token),
     Null,
 }

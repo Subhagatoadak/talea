@@ -49,6 +49,10 @@ pub enum Statement {
         source: Expression,
         alias: Expression,
     },
+    LoadCsv {
+        path: Expression,
+        alias: Expression,
+    },
     Save {
         source: Expression,
         destination: Expression,
@@ -135,6 +139,31 @@ pub enum Statement {
     Kolmogorov {
         column: Expression,
         data: Expression,
+
+    Mean {
+        column: Expression,
+        source: Expression,
+        destination: Expression,
+    },
+    Median {
+        column: Expression,
+        source: Expression,
+        destination: Expression,
+    },
+    Mode {
+        column: Expression,
+        source: Expression,
+        destination: Expression,
+    },
+    Skewness {
+        column: Expression,
+        source: Expression,
+        destination: Expression,
+    },
+    Kurtosis {
+        column: Expression,
+        source: Expression,
+
         destination: Expression,
     },
     Arithmetic {
