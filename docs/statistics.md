@@ -31,10 +31,10 @@ use python
 import python "pandas" as pd
 import python "scipy.stats" as stats
 call pd read_csv "examples/sample_data.csv" as data
-call data query "group == 'A'" as group_a
-call data query "group == 'B'" as group_b
-call group_a __getitem__ "y" as y_a
-call group_b __getitem__ "y" as y_b
+callmethod data query "group == 'A'" as group_a
+callmethod data query "group == 'B'" as group_b
+callmethod group_a __getitem__ "y" as y_a
+callmethod group_b __getitem__ "y" as y_b
 call stats ttest_ind y_a y_b as result
 print result
 ```
@@ -48,8 +48,8 @@ import python "pandas" as pd
 import python "statsmodels.formula.api" as smf
 call pd read_csv "examples/sample_data.csv" as data
 call smf ols "y ~ x" data as model
-call model fit as fitted
-call fitted summary as summary
+callmethod model fit as fitted
+callmethod fitted summary as summary
 print summary
 ```
 

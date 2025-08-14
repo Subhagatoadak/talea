@@ -4,6 +4,6 @@ import python "pandas" as pd
 import python "statsmodels.formula.api" as smf
 call pd read_csv "sample_data.csv" as data
 call smf ols "y ~ x" data as model
-call model fit as fit
-call fit params as params
+callmethod model fit as fit
+callmethod fit params as params
 print params

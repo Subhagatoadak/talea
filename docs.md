@@ -79,6 +79,7 @@ The following commands are currently supported by the Talea interpreter. Each co
 | `install` | Install a Python module or R package | `install python "textblob"` |
 | `import` | Import a module from the chosen backend | `import python "textblob" as tb` |
 | `call` | Call a function from an imported module | `call tb TextBlob "Talea rocks" as blob` |
+| `callmethod` | Call a method on an object | `callmethod blob sentiment as sentiment` |
 | `openai` | Query an OpenAI model | `openai "Write a haiku" as poem` |
 | `help` | Show command reference | `help` |
 | `exit` | Leave the interpreter | `exit` |
@@ -172,7 +173,7 @@ print bow
 use python
 import python "textblob" as tb
 call tb TextBlob "Talea makes NLP easy" as blob
-call blob sentiment as sentiment
+callmethod blob sentiment as sentiment
 print sentiment
 ```
 
