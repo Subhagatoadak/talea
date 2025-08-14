@@ -1,3 +1,4 @@
+use serde_json::Value;
 use talea::lexer::Lexer;
 use talea::parser::Parser;
 use talea::runtime::interpreter::Interpreter;
@@ -136,7 +137,10 @@ fn test_python_dataframe_conversion() {
     "#;
     let interp = match run_script(script) {
         Ok(i) => i,
-        Err(e) if e.contains("pip install pandas") => {
+        Err(e)
+            if e.contains("pip install pandas")
+                || e.contains("Failed to install Python module") =>
+        {
             println!("skipping test: {e}");
             return;
         }
@@ -159,7 +163,10 @@ fn test_callmethod_describe() {
     "#;
     let interp = match run_script(script) {
         Ok(i) => i,
-        Err(e) if e.contains("pip install pandas") => {
+        Err(e)
+            if e.contains("pip install pandas")
+                || e.contains("Failed to install Python module") =>
+        {
             println!("skipping test: {e}");
             return;
         }
@@ -179,7 +186,10 @@ fn test_callmethod_dunder() {
     "#;
     let interp = match run_script(script) {
         Ok(i) => i,
-        Err(e) if e.contains("pip install pandas") => {
+        Err(e)
+            if e.contains("pip install pandas")
+                || e.contains("Failed to install Python module") =>
+        {
             println!("skipping test: {e}");
             return;
         }
@@ -209,4 +219,44 @@ fn test_callmethod_non_pyobject_error() {
     "#;
     let err = run_script(script).err().expect("expected error");
     assert!(err.contains("not a Python object"));
+}
+
+#[test]
+fn test_regress_outputs_metrics() {
+    let script = r#"
+        use python
+        install python "pandas"
+        install python "statsmodels"
+        install python "matplotlib"
+        load "examples/sample_data.csv" as data
+        regress y using x in data as model
+    "#;
+    let interp = match run_script(script) {
+        Ok(i) => i,
+        Err(e)
+            if e.contains("pip install pandas")
+                || e.contains("pip install statsmodels")
+                || e.contains("pip install matplotlib")
+                || e.contains("Failed to install Python module")
+                || e.contains("ModuleNotFoundError")
+                || e.contains("No module named") =>
+        {
+            println!("skipping test: {e}");
+            return;
+        }
+        Err(e) => panic!("unexpected error: {e}"),
+    };
+    let result = match interp.get_variable("model") {
+        Some(TaleaValue::String(s)) => s,
+        other => panic!("expected string result, got {:?}", other),
+    };
+    let parsed: Value = serde_json::from_str(&result).expect("valid json");
+    assert!(parsed.get("coefficients").is_some());
+    assert!(parsed.get("predictions").is_some());
+    assert!(parsed.get("metrics").is_some());
+    let metrics = parsed.get("metrics").unwrap();
+    assert!(metrics.get("r_squared").is_some());
+    assert!(metrics.get("mape").is_some());
+    assert!(metrics.get("rmse").is_some());
+    assert!(parsed.get("chart").is_some());
 }
