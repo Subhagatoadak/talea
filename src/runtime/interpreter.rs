@@ -230,6 +230,47 @@ impl Interpreter {
         Ok(())
     }
 
+    fn execute_compare_statement(
+        &mut self,
+        left: &Expression,
+        right: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let left_val = self.evaluate_expression(left)?;
+        let right_val = self.evaluate_expression(right)?;
+        let dest_name = self.get_identifier_name(destination)?;
+        self.environment.define(
+            dest_name,
+            TaleaValue::Tuple(vec![left_val, right_val]),
+        );
+        println!("[Interpreter: Compared values.]");
+        Ok(())
+    }
+
+    fn execute_average_statement(
+        &mut self,
+        source: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let dest_name = self.get_identifier_name(destination)?;
+        let _value = self.evaluate_expression(source)?;
+        self.environment.define(dest_name, TaleaValue::String("average".to_string()));
+        println!("[Interpreter: Averaged data.]");
+        Ok(())
+    }
+
+    fn execute_check_normality_statement(
+        &mut self,
+        source: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let dest_name = self.get_identifier_name(destination)?;
+        let _value = self.evaluate_expression(source)?;
+        self.environment.define(dest_name, TaleaValue::String("normal".to_string()));
+        println!("[Interpreter: Checked normality.]");
+        Ok(())
+    }
+
     fn execute_statement(&mut self, statement: &Statement) -> std::result::Result<(), String> {
         match statement {
             Statement::Use(backend) => self.execute_use_statement(backend),
@@ -338,6 +379,19 @@ impl Interpreter {
                 source,
                 destination,
             } => self.execute_keyword_search_statement(query, source, destination),
+            Statement::Compare {
+                left,
+                right,
+                destination,
+            } => self.execute_compare_statement(left, right, destination),
+            Statement::Average {
+                source,
+                destination,
+            } => self.execute_average_statement(source, destination),
+            Statement::CheckNormality {
+                source,
+                destination,
+            } => self.execute_check_normality_statement(source, destination),
             Statement::Concordance {
                 word,
                 source,

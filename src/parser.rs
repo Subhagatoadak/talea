@@ -47,6 +47,11 @@ impl Parser {
             Some(Token::Similarity) => self.parse_similarity_statement(),
             Some(Token::SemanticSearch) => self.parse_semantic_search_statement(),
             Some(Token::Search) => self.parse_search_statement(),
+            Some(Token::Compare) => self.parse_compare_statement(),
+            Some(Token::Average) => self.parse_average_statement(),
+            Some(Token::Check) if self.peek_token() == Some(&Token::Normality) => {
+                self.parse_check_normality_statement()
+            }
             Some(Token::Concordance) | Some(Token::KWIC) => self.parse_concordance_statement(),
             Some(Token::Tag) => self.parse_tag_statement(),
             Some(Token::Translate) => self.parse_translate_statement(),
@@ -324,6 +329,43 @@ impl Parser {
         let destination = self.parse_identifier_expression()?;
         Ok(Statement::KeywordSearch {
             query,
+            source,
+            destination,
+        })
+    }
+
+    fn parse_compare_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let left = self.parse_expression()?;
+        self.consume(Token::To)?;
+        let right = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Compare {
+            left,
+            right,
+            destination,
+        })
+    }
+
+    fn parse_average_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let source = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Average {
+            source,
+            destination,
+        })
+    }
+
+    fn parse_check_normality_statement(&mut self) -> Result<Statement, String> {
+        self.advance(); // consume 'check'
+        self.consume(Token::Normality)?;
+        let source = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::CheckNormality {
             source,
             destination,
         })

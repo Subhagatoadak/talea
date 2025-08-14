@@ -127,6 +127,19 @@ pub enum Statement {
         source: Expression,
         destination: Expression,
     },
+    Compare {
+        left: Expression,
+        right: Expression,
+        destination: Expression,
+    },
+    Average {
+        source: Expression,
+        destination: Expression,
+    },
+    CheckNormality {
+        source: Expression,
+        destination: Expression,
+    },
     Arithmetic {
         op: ArithmeticOp,
         value: Expression,
