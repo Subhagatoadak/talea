@@ -261,6 +261,8 @@ Talea understands a growing set of plain-English commands. The table below summa
 | `tag` | NLP tagging with spaCy (NER, POS) | `tag my_text with ner as entities` |
 | `summarize` | Summarize text | `summarize my_text as summary` |
 | `paraphrase` | Rephrase text using OpenAI | `paraphrase my_text as paraphrased` |
+| `translate` | Translate text to another language | `translate my_text to "spanish" as spanish_text` |
+| `sentiment` | Analyze sentiment of text | `sentiment my_text as mood` |
 | `phrase` | Extract phrases from text | `phrase my_text as phrases` |
 | `paragraph` | Work with paragraphs | `paragraph my_text as paras` |
 | `concordance` | Find sentences containing a word | `concordance "rust" in my_text as contexts` |

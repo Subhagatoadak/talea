@@ -72,6 +72,15 @@ impl Interpreter {
                 method,
                 destination,
             } => self.execute_tag_statement(source, method, destination),
+            Statement::Translate {
+                source,
+                language,
+                destination,
+            } => self.execute_translate_statement(source, language, destination),
+            Statement::Sentiment {
+                source,
+                destination,
+            } => self.execute_sentiment_statement(source, destination),
             Statement::Define { name, value } => self.execute_define_statement(name, value),
             Statement::Arithmetic {
                 op,
@@ -353,6 +362,66 @@ impl Interpreter {
         })
         .map_err(|e| format!("Python Error: {}", e))?;
         println!("[Interpreter: Tagging complete.]");
+        Ok(())
+    }
+
+    fn execute_translate_statement(
+        &mut self,
+        source: &Expression,
+        language: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let text = self.get_string_value(source)?;
+        let lang = self.get_string_value(language)?;
+        let dest_name = self.get_identifier_name(destination)?;
+        let prompt = format!("Translate the following text to {}:\n{}", lang, text);
+        let pipeline = OpenAiPipeline::from_env("gpt-3.5-turbo")?;
+        let translation = pipeline.ask(&prompt)?;
+        self.environment
+            .define(dest_name, TaleaValue::String(translation));
+        println!("[Interpreter: Translation complete.]");
+        Ok(())
+    }
+
+    fn execute_sentiment_statement(
+        &mut self,
+        source: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let text = self.get_string_value(source)?.to_lowercase();
+        let dest_name = self.get_identifier_name(destination)?;
+        let positive = [
+            "good",
+            "great",
+            "happy",
+            "love",
+            "excellent",
+            "awesome",
+            "fantastic",
+            "nice",
+        ];
+        let negative = [
+            "bad", "terrible", "sad", "hate", "awful", "horrible", "poor", "worst",
+        ];
+        let mut score = 0i32;
+        for word in text.split_whitespace() {
+            if positive.contains(&word) {
+                score += 1;
+            }
+            if negative.contains(&word) {
+                score -= 1;
+            }
+        }
+        let sentiment = if score > 0 {
+            "positive"
+        } else if score < 0 {
+            "negative"
+        } else {
+            "neutral"
+        };
+        self.environment
+            .define(dest_name, TaleaValue::String(sentiment.to_string()));
+        println!("[Interpreter: Sentiment analysis complete.]");
         Ok(())
     }
 

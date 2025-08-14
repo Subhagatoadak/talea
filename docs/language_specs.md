@@ -50,6 +50,8 @@ set environment variable OPENAI_API_KEY to "sk-..."
 | Concordance / KWIC | `concordance "rust" in article as hits` |
 | Tag with POS or NER | `tag article with ner as entities` |
 | Summarize text | `summarize article as summary` |
+| Translate text | `translate article to "spanish" as es_article` |
+| Sentiment analysis | `sentiment article as mood` |
 | Filter lists | `filter tokens containing "rust" as rust_tokens` |
 
 ## Control Flow and Arithmetic
