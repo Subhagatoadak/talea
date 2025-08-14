@@ -25,3 +25,9 @@ dist/
 # Added by cargo
 
 /target
+
+# Tauri IDE
+ide/node_modules/
+ide/dist/
+ide/src-tauri/target/
+
