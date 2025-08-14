@@ -270,6 +270,8 @@ impl Interpreter {
         let _value = self.evaluate_expression(source)?;
         self.environment.define(dest_name, TaleaValue::String("normal".to_string()));
         println!("[Interpreter: Checked normality.]");
+        Ok(())
+    }
 
     fn execute_ttest_statement(
         &mut self,
@@ -785,7 +787,8 @@ def run_regression(csv, target, features):
             let response = pipeline.ask(&prompt)?;
             println!("[OpenAI Interpretation]\n{}", response);
         }
-
+        Ok(())
+    }
 
     fn execute_insight_statement(
         &mut self,
@@ -2179,6 +2182,7 @@ def run_regression(csv, target, features):
             }
             _ => Err("Expected a list of numbers".to_string()),
         }
+    }
 
     fn get_column_values(
         &mut self,
@@ -2348,6 +2352,24 @@ def run_regression(csv, target, features):
         match value {
             TaleaValue::String(s) => JsonValue::String(s.clone()),
             TaleaValue::Number(n) => JsonValue::Number((*n).into()),
+            TaleaValue::Float(f) => {
+                serde_json::Number::from_f64(*f)
+                    .map(JsonValue::Number)
+                    .unwrap_or(JsonValue::Null)
+            }
+            TaleaValue::Table(rows) => {
+                let json_rows: Vec<JsonValue> = rows
+                    .iter()
+                    .map(|row| {
+                        let mut map = serde_json::Map::new();
+                        for (k, v) in row {
+                            map.insert(k.clone(), Interpreter::talea_value_to_json(v));
+                        }
+                        JsonValue::Object(map)
+                    })
+                    .collect();
+                JsonValue::Array(json_rows)
+            }
             TaleaValue::List(l) | TaleaValue::Tuple(l) => JsonValue::Array(
                 l.iter()
                     .map(|v| Interpreter::talea_value_to_json(v))
