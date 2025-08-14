@@ -252,6 +252,31 @@ impl Interpreter {
                 source,
                 destination,
             } => self.execute_sentiment_statement(source, destination),
+            Statement::Mean {
+                column,
+                source,
+                destination,
+            } => self.execute_mean_statement(column, source, destination),
+            Statement::Median {
+                column,
+                source,
+                destination,
+            } => self.execute_median_statement(column, source, destination),
+            Statement::Mode {
+                column,
+                source,
+                destination,
+            } => self.execute_mode_statement(column, source, destination),
+            Statement::Skewness {
+                column,
+                source,
+                destination,
+            } => self.execute_skewness_statement(column, source, destination),
+            Statement::Kurtosis {
+                column,
+                source,
+                destination,
+            } => self.execute_kurtosis_statement(column, source, destination),
             Statement::Define { name, value } => self.execute_define_statement(name, value),
             Statement::Arithmetic {
                 op,
@@ -616,6 +641,119 @@ impl Interpreter {
         self.environment
             .define(dest_name, TaleaValue::String(sentiment.to_string()));
         println!("[Interpreter: Sentiment analysis complete.]");
+        Ok(())
+    }
+
+    fn compute_statistic(
+        &self,
+        data: &str,
+        column: &str,
+        func: &str,
+    ) -> std::result::Result<f64, String> {
+        Python::with_gil(|py| -> PyResult<f64> {
+            let pandas = PyModule::import_bound(py, "pandas")?;
+            let io = PyModule::import_bound(py, "io")?;
+            let string_io = io.getattr("StringIO")?.call1((data,))?;
+            let df = pandas.getattr("read_csv")?.call1((string_io,))?;
+            let col = df.get_item(column)?;
+            match func {
+                "mean" => col.getattr("mean")?.call0()?.extract::<f64>(),
+                "median" => col.getattr("median")?.call0()?.extract::<f64>(),
+                "mode" => {
+                    let modes = col.getattr("mode")?.call0()?;
+                    modes.get_item(0)?.extract::<f64>()
+                }
+                "skewness" => {
+                    let arr = col.getattr("tolist")?.call0()?;
+                    let stats = PyModule::import_bound(py, "scipy.stats")?;
+                    stats.getattr("skew")?.call1((arr,))?.extract::<f64>()
+                }
+                "kurtosis" => {
+                    let arr = col.getattr("tolist")?.call0()?;
+                    let stats = PyModule::import_bound(py, "scipy.stats")?;
+                    stats
+                        .getattr("kurtosis")?
+                        .call1((arr,))?
+                        .extract::<f64>()
+                }
+                _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>("bad func"))?,
+            }
+        })
+        .map_err(|e| e.to_string())
+    }
+
+    fn execute_mean_statement(
+        &mut self,
+        column: &Expression,
+        source: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let col_name = self.get_identifier_name(column)?;
+        let data = self.get_string_value(source)?;
+        let result = self.compute_statistic(&data, &col_name, "mean")?;
+        let dest_name = self.get_identifier_name(destination)?;
+        self.environment
+            .define(dest_name, TaleaValue::Number(result as i64));
+        Ok(())
+    }
+
+    fn execute_median_statement(
+        &mut self,
+        column: &Expression,
+        source: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let col_name = self.get_identifier_name(column)?;
+        let data = self.get_string_value(source)?;
+        let result = self.compute_statistic(&data, &col_name, "median")?;
+        let dest_name = self.get_identifier_name(destination)?;
+        self.environment
+            .define(dest_name, TaleaValue::Number(result as i64));
+        Ok(())
+    }
+
+    fn execute_mode_statement(
+        &mut self,
+        column: &Expression,
+        source: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let col_name = self.get_identifier_name(column)?;
+        let data = self.get_string_value(source)?;
+        let result = self.compute_statistic(&data, &col_name, "mode")?;
+        let dest_name = self.get_identifier_name(destination)?;
+        self.environment
+            .define(dest_name, TaleaValue::Number(result as i64));
+        Ok(())
+    }
+
+    fn execute_skewness_statement(
+        &mut self,
+        column: &Expression,
+        source: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let col_name = self.get_identifier_name(column)?;
+        let data = self.get_string_value(source)?;
+        let result = self.compute_statistic(&data, &col_name, "skewness")?;
+        let dest_name = self.get_identifier_name(destination)?;
+        self.environment
+            .define(dest_name, TaleaValue::Number(result as i64));
+        Ok(())
+    }
+
+    fn execute_kurtosis_statement(
+        &mut self,
+        column: &Expression,
+        source: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let col_name = self.get_identifier_name(column)?;
+        let data = self.get_string_value(source)?;
+        let result = self.compute_statistic(&data, &col_name, "kurtosis")?;
+        let dest_name = self.get_identifier_name(destination)?;
+        self.environment
+            .define(dest_name, TaleaValue::Number(result as i64));
         Ok(())
     }
 

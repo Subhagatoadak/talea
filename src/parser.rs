@@ -51,6 +51,11 @@ impl Parser {
             Some(Token::Tag) => self.parse_tag_statement(),
             Some(Token::Translate) => self.parse_translate_statement(),
             Some(Token::Sentiment) => self.parse_sentiment_statement(),
+            Some(Token::Mean) => self.parse_mean_statement(),
+            Some(Token::Median) => self.parse_median_statement(),
+            Some(Token::Mode) => self.parse_mode_statement(),
+            Some(Token::Skewness) => self.parse_skewness_statement(),
+            Some(Token::Kurtosis) => self.parse_kurtosis_statement(),
             Some(Token::Import) => self.parse_import_statement(),
             Some(Token::Install) => self.parse_install_statement(),
             Some(Token::Call) => self.parse_call_statement(),
@@ -246,6 +251,76 @@ impl Parser {
         self.consume(Token::As)?;
         let destination = self.parse_identifier_expression()?;
         Ok(Statement::Sentiment {
+            source,
+            destination,
+        })
+    }
+
+    fn parse_mean_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let column = self.parse_identifier_expression()?;
+        self.consume(Token::In)?;
+        let source = self.parse_identifier_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Mean {
+            column,
+            source,
+            destination,
+        })
+    }
+
+    fn parse_median_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let column = self.parse_identifier_expression()?;
+        self.consume(Token::In)?;
+        let source = self.parse_identifier_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Median {
+            column,
+            source,
+            destination,
+        })
+    }
+
+    fn parse_mode_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let column = self.parse_identifier_expression()?;
+        self.consume(Token::In)?;
+        let source = self.parse_identifier_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Mode {
+            column,
+            source,
+            destination,
+        })
+    }
+
+    fn parse_skewness_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let column = self.parse_identifier_expression()?;
+        self.consume(Token::In)?;
+        let source = self.parse_identifier_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Skewness {
+            column,
+            source,
+            destination,
+        })
+    }
+
+    fn parse_kurtosis_statement(&mut self) -> Result<Statement, String> {
+        self.advance();
+        let column = self.parse_identifier_expression()?;
+        self.consume(Token::In)?;
+        let source = self.parse_identifier_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::Kurtosis {
+            column,
             source,
             destination,
         })
