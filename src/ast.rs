@@ -131,6 +131,31 @@ pub enum Statement {
         source: Expression,
         destination: Expression,
     },
+    Mean {
+        column: Expression,
+        source: Expression,
+        destination: Expression,
+    },
+    Median {
+        column: Expression,
+        source: Expression,
+        destination: Expression,
+    },
+    Mode {
+        column: Expression,
+        source: Expression,
+        destination: Expression,
+    },
+    Skewness {
+        column: Expression,
+        source: Expression,
+        destination: Expression,
+    },
+    Kurtosis {
+        column: Expression,
+        source: Expression,
+        destination: Expression,
+    },
     Arithmetic {
         op: ArithmeticOp,
         value: Expression,
