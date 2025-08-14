@@ -1,7 +1,7 @@
 use talea::lexer::Lexer;
 use talea::parser::Parser;
-use talea::runtime::TaleaValue;
 use talea::runtime::interpreter::Interpreter;
+use talea::runtime::{TaleaValue, load_talea_object, save_talea_object};
 
 fn run_script(input: &str) -> Result<Interpreter, String> {
     let mut lexer = Lexer::new(input);
@@ -111,6 +111,19 @@ fn test_search_command() {
         }
         _ => panic!("hits not found"),
     }
+}
+
+#[test]
+fn test_save_and_load_talea_object() {
+    let value = TaleaValue::List(vec![
+        TaleaValue::Number(1),
+        TaleaValue::String("two".to_string()),
+    ]);
+    let path = "tests/data/temp_talea_object.json";
+    save_talea_object(&value, path).unwrap();
+    let loaded = load_talea_object(path).unwrap();
+    std::fs::remove_file(path).unwrap();
+    assert_eq!(value, loaded);
 }
 
 #[test]
