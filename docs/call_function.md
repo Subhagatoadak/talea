@@ -3,6 +3,24 @@
 The `call` command runs functions from imported libraries or methods on objects.
 Use it to interact with Python or other backends while writing Talea scripts.
 
+
+## Two Ways to `call`
+
+There are two patterns depending on what you want to run.
+
+### 1. Call a function from a library
+
+```
+call <library> <function> [arguments] as <result>
+```
+
+- **`<library>`** – alias from an earlier `import` command.
+- **`<function>`** – the function provided by that library.
+- **`[arguments]`** – optional values passed to the function.
+- **`<result>`** – variable that stores what the function returns.
+
+Example:
+
 ## Basic Structure
 
 ```
@@ -18,27 +36,59 @@ call <source> <function-or-method> [arguments] as <result>
 
 ### Calling a function from a library
 
+
 ```
 use python
 import python "pandas" as pd
 call pd read_csv "examples/sample_data.csv" as data
 ```
 
+
+### 2. Call a method on an object
+
+```
+call <object> <method> [arguments] as <result>
+```
+
+- **`<object>`** – a variable that already holds a Python object.
+- **`<method>`** – the action to run on that object.
+- **`[arguments]`** – optional values passed to the method.
+- **`<result>`** – variable that stores the method’s return value.
+
+Example:
+
+```
+# data was created in the previous example
+
 ### Calling a method on an object
 
 ```
+
 call data describe as summary
 print summary
 ```
+
+
+If you get `Library 'data' not found. Did you import it?`, Talea could not find the
+`data` object. Make sure the earlier call that created `data` succeeded and that
+the name is spelled the same.
+
 
 ## Common Errors and Fixes
 
 | Error message | Cause | How to fix |
 |---------------|-------|------------|
+
+| `Library 'X' not found. Did you import it?` | Talea cannot find the library or object name | For library calls, import the module. For object methods, make sure the variable exists. |
+| `Function 'f' not found in library 'X'` | Wrong function name | Confirm the function or method exists and is spelled correctly. |
+| `Missing file or invalid path` | `read_csv` or similar could not find the file | Verify the file path and put it in quotes. |
+| `Type mismatch or argument error` | Arguments do not match the function signature | Review the required arguments and provide them in order. |
+
 | `Library 'X' not found. Did you import it?` | `<source>` is unknown | Import the library or check the variable name. |
 | `Function 'f' not found in library 'X'` | Wrong function name | Confirm the function or method exists and is spelled correctly. |
 | `Missing file or invalid path` | `read_csv` or similar could not find the file | Verify the file path and enclose it in quotes. |
 | `Type mismatch or argument error` | Arguments do not match function signature | Review the required arguments and provide them in the correct order. |
+
 
 ## Advanced Calls
 
