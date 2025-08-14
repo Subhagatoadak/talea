@@ -160,7 +160,7 @@ Talea can orchestrate sophisticated natural language processing pipelines by cal
 > use python
 > import python "textblob" as tb
 > call tb TextBlob "Talea makes NLP easy" as blob
-> call tb sentiment blob as sentiment
+> call blob sentiment as sentiment
 > print sentiment
 ```
 

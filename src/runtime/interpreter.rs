@@ -611,9 +611,18 @@ impl Interpreter {
                         .iter()
                         .map(|v| Interpreter::talea_value_to_py(py, v))
                         .collect();
-                    let args_tuple = PyTuple::new_bound(py, py_args);
-                    let res = current.call1(args_tuple)?;
-                    Ok(Interpreter::py_obj_to_talea(res))
+                    if current.is_callable() {
+                        let args_tuple = PyTuple::new_bound(py, py_args);
+                        let res = current.call1(args_tuple)?;
+                        Ok(Interpreter::py_obj_to_talea(res))
+                    } else {
+                        if !py_args.is_empty() {
+                            return Err(pyo3::exceptions::PyTypeError::new_err(
+                                "Tried to call non-callable attribute with arguments",
+                            ));
+                        }
+                        Ok(Interpreter::py_obj_to_talea(current))
+                    }
                 })
                 .map_err(|e| format!("Python Error: {}", e))?;
                 self.environment.define(dest_name, result);
