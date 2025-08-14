@@ -155,7 +155,7 @@ print summary
 ```
 
 Talea can summarize plain text directly. To summarize a list of numbers,
-enable the R backend first with `use r`.
+enable the R backend first with `use r` (requires building with `--features r`).
 
 ### Topic Modeling (via Python's `gensim`)
 Use the built-in `doc2bow` command to create a bag-of-words representation

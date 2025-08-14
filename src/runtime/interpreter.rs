@@ -645,11 +645,28 @@ impl Interpreter {
     }
 
     fn execute_use_statement(&mut self, backend: &Backend) -> std::result::Result<(), String> {
-        self.active_backends.insert(backend.clone());
-        println!("[Interpreter: {:?} backend enabled.]", backend);
+        let result = match backend {
+            Backend::R => {
+                #[cfg(feature = "r")]
+                {
+                    self.active_backends.insert(Backend::R);
+                    println!("[Interpreter: R backend enabled.]");
+                    Ok(())
+                }
+                #[cfg(not(feature = "r"))]
+                {
+                    Err("R backend not enabled. Rebuild with `--features r`".to_string())
+                }
+            }
+            _ => {
+                self.active_backends.insert(backend.clone());
+                println!("[Interpreter: {:?} backend enabled.]", backend);
+                Ok(())
+            }
+        };
         // The R engine is now initialized automatically by the `test!` macro when it's needed.
         // We no longer need any special code here.
-        Ok(())
+        result
     }
 
     fn execute_help_statement(&mut self) -> std::result::Result<(), String> {

@@ -27,11 +27,13 @@ import python "pandas" as pd
 call pd read_csv "examples/sample_data.csv" as data
 ```
 
-``` 
+```
 use r
 import r "stats" as stats
 call stats rnorm 5 as samples
 ```
+
+> **Note:** R support requires building Talea with the `r` feature: `cargo run --features r`.
 
 
 ### 2. Call a method on an object
