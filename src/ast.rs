@@ -154,7 +154,8 @@ pub enum Statement {
     Kolmogorov {
         column: Expression,
         data: Expression,
-
+        destination: Expression,
+    },
     Mean {
         column: Expression,
         source: Expression,
@@ -208,7 +209,7 @@ pub enum Statement {
         source: Expression,
         destination: Expression,
         with_openai: bool,
-
+    },
     Insight {
         source: Expression,
         destination: Expression,

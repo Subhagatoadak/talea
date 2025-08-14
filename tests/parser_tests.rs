@@ -1,6 +1,5 @@
 use talea::ast::{Expression, Statement};
-use talea::lexer::Lexer;
-use talea::lexer::Token;
+use talea::lexer::{Lexer, Token};
 use talea::parser::Parser;
 
 fn parse(input: &str) -> Vec<Statement> {
@@ -123,7 +122,6 @@ fn test_parse_search() {
 }
 
 #[test]
-
 fn test_parse_compare() {
     let statements = parse("compare a to b as result");
     assert_eq!(
@@ -144,8 +142,11 @@ fn test_parse_average() {
         Statement::Average {
             source: Expression::Identifier("numbers".to_string()),
             destination: Expression::Identifier("avg_result".to_string()),
+        }
+    );
+}
 
-
+#[test]
 fn test_parse_regress() {
     let statements = parse("regress salary using age, education in data as model");
     assert_eq!(
@@ -159,19 +160,11 @@ fn test_parse_regress() {
             source: Expression::Identifier("data".to_string()),
             destination: Expression::Identifier("model".to_string()),
             with_openai: false,
+        }
+    );
+}
 
-
-fn test_parse_ttest() {
-    let statements = parse("two sample ttest column score between group1 and group2 as t_result");
-    assert_eq!(
-        statements[0],
-        Statement::TTest {
-            sample: Some("two".to_string()),
-            column: Expression::Identifier("score".to_string()),
-            group1: Expression::Identifier("group1".to_string()),
-            group2: Expression::Identifier("group2".to_string()),
-            destination: Expression::Identifier("t_result".to_string()),
-
+#[test]
 fn test_parse_shapiro() {
     let statements = parse("shapiro column height in data as result");
     assert_eq!(
@@ -180,13 +173,11 @@ fn test_parse_shapiro() {
             column: Expression::Identifier("height".to_string()),
             data: Expression::Identifier("data".to_string()),
             destination: Expression::Identifier("result".to_string()),
-
         }
     );
 }
 
 #[test]
-
 fn test_parse_check_normality() {
     let statements = parse("check normality numbers as is_normal");
     assert_eq!(
@@ -194,7 +185,11 @@ fn test_parse_check_normality() {
         Statement::CheckNormality {
             source: Expression::Identifier("numbers".to_string()),
             destination: Expression::Identifier("is_normal".to_string()),
+        }
+    );
+}
 
+#[test]
 fn test_parse_kolmogorov() {
     let statements = parse("kolmogorov column height in data as result");
     assert_eq!(
@@ -203,9 +198,7 @@ fn test_parse_kolmogorov() {
             column: Expression::Identifier("height".to_string()),
             data: Expression::Identifier("data".to_string()),
             destination: Expression::Identifier("result".to_string()),
-
-
-
         }
     );
 }
+

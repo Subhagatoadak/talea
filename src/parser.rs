@@ -356,7 +356,7 @@ impl Parser {
             }
             _ => Err("Expected statistical test".to_string()),
         }
-
+    }
 
     fn parse_shapiro_statement(&mut self) -> Result<Statement, String> {
         self.advance();
@@ -372,6 +372,9 @@ impl Parser {
         Ok(Statement::Shapiro {
             column,
             data,
+            destination,
+        })
+    }
 
     fn parse_mean_statement(&mut self) -> Result<Statement, String> {
         self.advance();
@@ -403,6 +406,9 @@ impl Parser {
         Ok(Statement::Kolmogorov {
             column,
             data,
+            destination,
+        })
+    }
 
     fn parse_median_statement(&mut self) -> Result<Statement, String> {
         self.advance();
@@ -1140,7 +1146,7 @@ mod tests {
 
     #[test]
     fn parse_insight_command() {
-        let mut lexer = Lexer::new("insight result using openai as explanation");
+        let mut lexer = Lexer::new("insight result with openai as explanation");
         let tokens = lexer.all_tokens();
         let mut parser = Parser::new(tokens);
         let stmts = parser.parse().expect("failed to parse");
