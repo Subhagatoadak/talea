@@ -252,6 +252,16 @@ impl Interpreter {
                 source,
                 destination,
             } => self.execute_sentiment_statement(source, destination),
+            Statement::Shapiro {
+                column,
+                data,
+                destination,
+            } => self.execute_shapiro_statement(column, data, destination),
+            Statement::Kolmogorov {
+                column,
+                data,
+                destination,
+            } => self.execute_kolmogorov_statement(column, data, destination),
             Statement::Define { name, value } => self.execute_define_statement(name, value),
             Statement::Arithmetic {
                 op,
@@ -1575,6 +1585,62 @@ impl Interpreter {
             }
         }
     }
+    fn execute_shapiro_statement(
+        &mut self,
+        column: &Expression,
+        data: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        if !self.active_backends.contains(&Backend::Python) {
+            return Err("Shapiro test requires 'use python' first.".to_string());
+        }
+        let dest_name = self.get_identifier_name(destination)?;
+        let values = self.get_column_values(column, data)?;
+        Python::with_gil(|py| -> PyResult<()> {
+            let stats = PyModule::import_bound(py, "scipy.stats")?;
+            let arr = PyList::new_bound(py, &values);
+            let res = stats.call_method1("shapiro", (arr,))?;
+            let stat: f64 = res.get_item(0)?.extract()?;
+            let p: f64 = res.get_item(1)?.extract()?;
+            self.environment.define(
+                dest_name,
+                TaleaValue::Tuple(vec![TaleaValue::Float(stat), TaleaValue::Float(p)]),
+            );
+            Ok(())
+        })
+        .map_err(|e| format!("Python Error: {}", e))?;
+        println!("[Interpreter: Shapiro-Wilk test complete.]");
+        Ok(())
+    }
+
+    fn execute_kolmogorov_statement(
+        &mut self,
+        column: &Expression,
+        data: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        if !self.active_backends.contains(&Backend::Python) {
+            return Err("Kolmogorov test requires 'use python' first.".to_string());
+        }
+        let dest_name = self.get_identifier_name(destination)?;
+        let values = self.get_column_values(column, data)?;
+        Python::with_gil(|py| -> PyResult<()> {
+            let stats = PyModule::import_bound(py, "scipy.stats")?;
+            let arr = PyList::new_bound(py, &values);
+            let res = stats.call_method1("kstest", (arr, "norm"))?;
+            let stat: f64 = res.get_item(0)?.extract()?;
+            let p: f64 = res.get_item(1)?.extract()?;
+            self.environment.define(
+                dest_name,
+                TaleaValue::Tuple(vec![TaleaValue::Float(stat), TaleaValue::Float(p)]),
+            );
+            Ok(())
+        })
+        .map_err(|e| format!("Python Error: {}", e))?;
+        println!("[Interpreter: Kolmogorov-Smirnov test complete.]");
+        Ok(())
+    }
+
     fn get_identifier_name(&self, expression: &Expression) -> std::result::Result<String, String> {
         if let Expression::Identifier(name) = expression {
             Ok(name.clone())
@@ -1590,6 +1656,61 @@ impl Interpreter {
         }
     }
 
+    fn get_column_values(
+        &mut self,
+        column: &Expression,
+        data: &Expression,
+    ) -> std::result::Result<Vec<f64>, String> {
+        let col_name = self.get_identifier_name(column)?;
+        let data_val = self.evaluate_expression(data)?;
+        if let TaleaValue::List(entries) = data_val {
+            for entry in entries {
+                match entry {
+                    TaleaValue::List(pair) if pair.len() == 2 => {
+                        if let TaleaValue::String(name) = &pair[0] {
+                            if name == &col_name {
+                                if let TaleaValue::List(vals) = &pair[1] {
+                                    let mut nums = Vec::new();
+                                    for v in vals {
+                                        match v {
+                                            TaleaValue::Number(n) => nums.push(*n as f64),
+                                            TaleaValue::Float(f) => nums.push(*f),
+                                            _ => {
+                                                return Err("Column values must be numbers".to_string())
+                                            }
+                                        }
+                                    }
+                                    return Ok(nums);
+                                }
+                            }
+                        }
+                    }
+                    TaleaValue::Tuple(pair) if pair.len() == 2 => {
+                        if let TaleaValue::String(name) = &pair[0] {
+                            if name == &col_name {
+                                if let TaleaValue::List(vals) = &pair[1] {
+                                    let mut nums = Vec::new();
+                                    for v in vals {
+                                        match v {
+                                            TaleaValue::Number(n) => nums.push(*n as f64),
+                                            TaleaValue::Float(f) => nums.push(*f),
+                                            _ => {
+                                                return Err("Column values must be numbers".to_string())
+                                            }
+                                        }
+                                    }
+                                    return Ok(nums);
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        Err(format!("Column '{}' not found", col_name))
+    }
+
     fn execute_if_statement(
         &mut self,
         condition: &Expression,
@@ -1599,6 +1720,7 @@ impl Interpreter {
         let cond_val = self.evaluate_expression(condition)?;
         let truthy = match cond_val {
             TaleaValue::Number(n) => n != 0,
+            TaleaValue::Float(f) => f != 0.0,
             TaleaValue::String(ref s) => !s.is_empty(),
             TaleaValue::List(ref l) => !l.is_empty(),
             TaleaValue::Tuple(ref t) => !t.is_empty(),
@@ -1736,6 +1858,7 @@ impl ToString for TaleaValue {
         match self {
             TaleaValue::String(s) => s.clone(),
             TaleaValue::Number(n) => n.to_string(),
+            TaleaValue::Float(f) => f.to_string(),
             TaleaValue::List(l) => {
                 let items: Vec<String> = l.iter().map(|val| val.to_string_for_list()).collect();
                 format!("[List with {} items]:\n[{}]", l.len(), items.join(", "))

@@ -127,6 +127,16 @@ pub enum Statement {
         source: Expression,
         destination: Expression,
     },
+    Shapiro {
+        column: Expression,
+        data: Expression,
+        destination: Expression,
+    },
+    Kolmogorov {
+        column: Expression,
+        data: Expression,
+        destination: Expression,
+    },
     Arithmetic {
         op: ArithmeticOp,
         value: Expression,
