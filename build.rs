@@ -1,13 +1,12 @@
 // FILE: build.rs (Corrected Version)
 
 use std::{
-    env,
-    fs,
+    env, fs,
     io::{self, Cursor},
     path::PathBuf,
 };
 
-const PY_VER:  &str = "3.11.7";
+const PY_VER: &str = "3.11.7";
 const REL_TAG: &str = "20240107";
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -19,7 +18,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // FIX: Determine the final, stable output directory based on the build profile.
     let profile = env::var("PROFILE")?; // "debug" or "release"
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
-    let python_root = manifest_dir.join("target").join(profile).join("python-embedded");
+    let python_root = manifest_dir
+        .join("target")
+        .join(profile)
+        .join("python-embedded");
 
     if python_root.exists() {
         println!("cargo:warning=Found existing embedded Python → skip download.");
@@ -27,29 +29,57 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    let target  = env::var("TARGET")?;
-    let triple  = target.as_str();
+    let target = env::var("TARGET")?;
+    let triple = target.as_str();
 
     let (arch, os) = match triple {
         t if t.contains("apple-darwin") => (
-            if t.contains("aarch64") { "aarch64" } else { "x86_64" }, "apple-darwin",
+            if t.contains("aarch64") {
+                "aarch64"
+            } else {
+                "x86_64"
+            },
+            "apple-darwin",
         ),
         t if t.contains("linux") => (
-            if t.contains("aarch64") { "aarch64" } else { "x86_64" }, "unknown-linux-gnu",
+            if t.contains("aarch64") {
+                "aarch64"
+            } else {
+                "x86_64"
+            },
+            "unknown-linux-gnu",
         ),
         _ => panic!("Unsupported compilation target for bundling: {triple}"),
     };
 
-    let ext = "tar.zst"; // We will use zstd for both macOS and Linux now
-    let filename = format!("cpython-{ver}+{tag}-{arch}-{os}-install_only.{ext}", ver = PY_VER, tag = REL_TAG, arch = arch, os = os);
-    let url = format!("https://github.com/indygreg/python-build-standalone/releases/download/{tag}/{file}", tag = REL_TAG, file = filename);
+    let ext = if os == "apple-darwin" {
+        "tar.gz"
+    } else {
+        "tar.zst"
+    };
+    let filename = format!(
+        "cpython-{ver}+{tag}-{arch}-{os}-install_only.{ext}",
+        ver = PY_VER,
+        tag = REL_TAG,
+        arch = arch,
+        os = os,
+        ext = ext,
+    );
+    let url = format!(
+        "https://github.com/indygreg/python-build-standalone/releases/download/{tag}/{file}",
+        tag = REL_TAG,
+        file = filename
+    );
 
     println!("cargo:warning=Downloading embedded python from:\n    {url}");
 
     let bytes = match reqwest::blocking::get(&url) {
         Ok(resp) if resp.status().is_success() => resp.bytes()?,
         Ok(resp) => {
-            println!("cargo:warning=Server returned {}, falling back to system Python.", resp.status());
+            println!(
+                "cargo:warning=Server returned {}, falling back to system Python.",
+                resp.status()
+            );
             return Ok(());
         }
         Err(e) => {
@@ -59,7 +89,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     println!("cargo:warning=Unpacking to {:?}", python_root);
-    unpack_zst(&bytes, &python_root)?;
+    if ext == "tar.zst" {
+        unpack_zst(&bytes, &python_root)?;
+    } else {
+        unpack_gz(&bytes, &python_root)?;
+    }
 
     println!("cargo:warning=Embedded Python ready at {:?}", python_root);
     emit_rpath(&python_root);
@@ -70,10 +104,25 @@ fn unpack_zst(data: &[u8], dst: &PathBuf) -> io::Result<()> {
     let cursor = Cursor::new(data);
     let decoder = zstd::stream::read::Decoder::new(cursor)?;
     let mut archive = tar::Archive::new(decoder);
-    
+    unpack_from_archive(&mut archive, dst)
+}
+
+fn unpack_gz(data: &[u8], dst: &PathBuf) -> io::Result<()> {
+    let cursor = Cursor::new(data);
+    let decoder = flate2::read::GzDecoder::new(cursor);
+    let mut archive = tar::Archive::new(decoder);
+    unpack_from_archive(&mut archive, dst)
+}
+
+fn unpack_from_archive<R: std::io::Read>(
+    archive: &mut tar::Archive<R>,
+    dst: &PathBuf,
+) -> io::Result<()> {
     // The archives have a nested 'python' directory. We need to extract its contents.
     let temp_unpack_dir = dst.with_extension("tmp-unpack");
-    if temp_unpack_dir.exists() { fs::remove_dir_all(&temp_unpack_dir)?; }
+    if temp_unpack_dir.exists() {
+        fs::remove_dir_all(&temp_unpack_dir)?;
+    }
     archive.unpack(&temp_unpack_dir)?;
 
     let source_dir = temp_unpack_dir.join("python");
@@ -90,8 +139,14 @@ fn unpack_zst(data: &[u8], dst: &PathBuf) -> io::Result<()> {
 }
 
 fn emit_rpath(python_root: &PathBuf) {
-    if env::var("TARGET").map(|t| t.contains("apple-darwin")).unwrap_or(false) {
+    if env::var("TARGET")
+        .map(|t| t.contains("apple-darwin"))
+        .unwrap_or(false)
+    {
         let lib = python_root.join("lib");
-        println!("cargo:rustc-link-arg=-Wl,-rpath,{r}", r = lib.to_string_lossy());
+        println!(
+            "cargo:rustc-link-arg=-Wl,-rpath,{r}",
+            r = lib.to_string_lossy()
+        );
     }
 }

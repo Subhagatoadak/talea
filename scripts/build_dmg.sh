@@ -41,6 +41,11 @@ cat > "$APP_DIR/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
+# Sign bundle with an ad-hoc identity to avoid codesign errors on macOS
+if command -v codesign >/dev/null 2>&1; then
+    codesign --force --deep --sign - "$APP_DIR"
+fi
+
 mkdir -p "$DIST_DIR"
 DMG_NAME="$DIST_DIR/${APP_NAME}-${VERSION}.dmg"
 
