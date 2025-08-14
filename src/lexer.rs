@@ -299,8 +299,8 @@ impl<'a> Lexer<'a> {
             "frequency" => Token::Frequency,
             "cluster" => Token::Cluster,
             "correlate" => Token::Correlate,
-            "compare" | "contrast" | "diff" | "difference" | "ttest" | "t_test" => Token::Compare,
-            "average" | "avg" | "mean" => Token::Average,
+            "compare" | "contrast" | "diff" | "difference" => Token::Compare,
+            "average" | "avg" => Token::Average,
             "check" | "test" => Token::Check,
             "summarize" => Token::Summarize,
             "insight" => Token::Insight,
@@ -374,8 +374,6 @@ impl<'a> Lexer<'a> {
 
             "with" => Token::With,
             "using" => Token::Using,
-
-            "with" | "using" => Token::With,
 
             "containing" => Token::Containing,
             "starting_with" => Token::StartingWith,
