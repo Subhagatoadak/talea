@@ -5,6 +5,7 @@ This guide shows how to load datasets, compute descriptive statistics, run commo
 ## Loading a Dataset
 The repository includes a small CSV file at [`examples/sample_data.csv`](../examples/sample_data.csv).
 
+### Python
 ```talea
 use python
 import python "pandas" as pd
@@ -12,9 +13,18 @@ call pd read_csv "examples/sample_data.csv" as data
 print data
 ```
 
-## Descriptive Statistics
-Generate quick summary statistics with pandas.
+### R
+```talea
+use r
+import r "readr" as readr
+call readr read_csv "examples/sample_data.csv" as data
+print data
+```
 
+## Descriptive Statistics
+Generate quick summary statistics with pandas or base R.
+
+### Python
 ```talea
 use python
 import python "pandas" as pd
@@ -23,9 +33,20 @@ callmethod data describe as summary
 print summary
 ```
 
+### R
+```talea
+use r
+import r "readr" as readr
+import r "base" as base
+call readr read_csv "examples/sample_data.csv" as data
+call base summary data as summary
+print summary
+```
+
 ## Hypothesis Tests
 Run a two-sample t-test comparing groups A and B.
 
+### Python
 ```talea
 use python
 import python "pandas" as pd
@@ -39,9 +60,20 @@ call stats ttest_ind y_a y_b as result
 print result
 ```
 
-## Regression Analysis
-Fit a simple linear regression with statsmodels.
+### R
+```talea
+use r
+import r "readr" as readr
+import r "stats" as stats
+call readr read_csv "examples/sample_data.csv" as data
+call stats t_test formula="y ~ group" data=data as result
+print result
+```
 
+## Regression Analysis
+Fit a simple linear regression with statsmodels or base R.
+
+### Python
 ```talea
 use python
 import python "pandas" as pd
@@ -50,6 +82,17 @@ call pd read_csv "examples/sample_data.csv" as data
 call smf ols "y ~ x" data as model
 callmethod model fit as fitted
 callmethod fitted summary as summary
+print summary
+```
+
+### R
+```talea
+use r
+import r "readr" as readr
+import r "stats" as stats
+call readr read_csv "examples/sample_data.csv" as data
+call stats lm formula="y ~ x" data=data as model
+callmethod model summary as summary
 print summary
 ```
 
@@ -63,7 +106,7 @@ print insight
 ```
 
 ### Example Scripts
-Reusable scripts demonstrating each section are available:
+Reusable Python scripts demonstrating each section are available:
 
 - [`examples/dataset_loading.tea`](../examples/dataset_loading.tea)
 - [`examples/descriptive_stats.tea`](../examples/descriptive_stats.tea)
