@@ -240,6 +240,10 @@ impl<'a> Lexer<'a> {
                 self.advance();
                 Token::Comma
             }
+            '=' => {
+                self.advance();
+                Token::Equals
+            }
             _ if ch.is_alphabetic() => self.read_identifier(),
             _ if ch.is_digit(10) => self.read_number(),
             _ => {
