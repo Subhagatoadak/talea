@@ -1,32 +1,29 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::sync::{Arc, Mutex};
+use gag::BufferRedirect;
+use std::io::Read;
 use talea::runtime::interpreter::Interpreter;
 
 #[tauri::command]
 fn run_talea(code: String) -> Result<String, String> {
     use talea::lexer::Lexer;
     use talea::parser::Parser;
-    let output = Arc::new(Mutex::new(String::new()));
-    let captured = output.clone();
-    std::io::set_print(move |s| {
-        captured.lock().unwrap().push_str(s);
-    });
-    let mut lexer = Lexer::new(&code);
-    let tokens = lexer.all_tokens();
-    let mut parser = Parser::new(tokens);
-    let ast = parser
-        .parse()
-        .map_err(|e| format!("Parse Error: {}", e))?;
-    let mut interpreter = Interpreter::new();
-    interpreter
-        .execute(ast)
-        .map_err(|e| format!("Runtime Error: {}", e))?;
-    std::io::set_print(|s| {
-        use std::io::Write;
-        let _ = std::io::stdout().write_all(s.as_bytes());
-    });
-    Ok(output.lock().unwrap().clone())
+    let mut output = String::new();
+    {
+        let mut redirect = BufferRedirect::stdout().map_err(|e| e.to_string())?;
+        let mut lexer = Lexer::new(&code);
+        let tokens = lexer.all_tokens();
+        let mut parser = Parser::new(tokens);
+        let ast = parser.parse().map_err(|e| format!("Parse Error: {}", e))?;
+        let mut interpreter = Interpreter::new();
+        interpreter
+            .execute(ast)
+            .map_err(|e| format!("Runtime Error: {}", e))?;
+        redirect
+            .read_to_string(&mut output)
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(output)
 }
 
 fn main() {
