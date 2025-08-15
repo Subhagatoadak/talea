@@ -1,23 +1,14 @@
 {
-  "$schema": "../node_modules/@tauri-apps/cli/schema.json",
-  "package": {
-    "productName": "Talea IDE",
-    "version": "0.1.0"
-  },
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "Talea IDE",
+  "version": "0.1.0",
+  "identifier": "com.talea.ide",
   "build": {
     "beforeBuildCommand": "",
     "beforeDevCommand": "",
-    "devPath": "../src",
-    "distDir": "../src"
+    "frontendDist": "../src"
   },
-  "tauri": {
-    "bundle": {
-      "identifier": "com.talea.ide"
-    },
-    "allowlist": {
-      "dialog": { "open": true, "save": true },
-      "fs": { "readFile": true, "writeFile": true }
-    },
+  "app": {
     "windows": [
       {
         "title": "Talea IDE",
@@ -25,5 +16,7 @@
         "height": 600
       }
     ]
-  }
+  },
+  "bundle": {},
+  "plugins": {}
 }
