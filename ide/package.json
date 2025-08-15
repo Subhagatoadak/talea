@@ -11,10 +11,10 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
-    "@tauri-apps/api": "^1.6.0",
+    "@tauri-apps/api": "^2.0.0",
     "monaco-editor": "^0.52.2"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^1.6.3"
+    "@tauri-apps/cli": "^2.0.0"
   }
 }
