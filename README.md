@@ -112,7 +112,7 @@ Lines beginning with `#` are treated as comments and ignored.
 
 ### 5. Talea IDE (optional)
 
-A lightweight graphical editor is available in the [`ide/`](ide/README.md) directory. It uses Tauri and the Monaco editor to provide a windowed environment where you can open, edit, run, and save `.talea` scripts. Refer to its [README](ide/README.md) for installation and usage details.
+A lightweight graphical editor is available in the [`ide/`](ide/README.md) directory. It uses Tauri and the Monaco editor to provide a windowed environment where you can open, edit, run, and save `.talea` scripts. Refer to its [README](ide/README.md) for installation and usage details. To generate an installable bundle of the IDE, run `scripts/install_dependencies.sh`, which installs the required JavaScript packages and builds platform-specific installers in `ide/src-tauri/target/release/bundle`.
 
 -----
 
