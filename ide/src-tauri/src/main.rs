@@ -4,12 +4,13 @@ use std::process::Command;
 use std::{fs, path::PathBuf};
 
 #[tauri::command]
-fn run_talea(code: String) -> Result<String, String> {
+fn run_talea(code: String, interpreter: Option<String>) -> Result<String, String> {
     let mut file: PathBuf = std::env::temp_dir();
     file.push("ide_tmp.tl");
     fs::write(&file, code).map_err(|e| e.to_string())?;
 
-    let output = Command::new("talea")
+    let cmd = interpreter.unwrap_or_else(|| "talea".to_string());
+    let output = Command::new(&cmd)
         .arg(&file)
         .output()
         .map_err(|e| e.to_string())?;

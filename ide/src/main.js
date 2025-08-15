@@ -3,6 +3,7 @@ import { open, save } from "@tauri-apps/api/dialog";
 import { readTextFile, writeFile } from "@tauri-apps/api/fs";
 
 let editor;
+let interpreterPath = null;
 
 function initMonaco() {
   require.config({ paths: { vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs" } });
@@ -24,14 +25,26 @@ function initMonaco() {
   });
 }
 
-export async function runCode() {
-  const code = editor.getValue();
+async function run(code) {
   try {
-    const output = await invoke("run_talea", { code });
+    const output = await invoke("run_talea", { code, interpreter: interpreterPath });
     appendConsole(output);
   } catch (e) {
     appendConsole(String(e));
   }
+}
+
+export async function runFile() {
+  await run(editor.getValue());
+}
+
+export async function runSelection() {
+  const selection = editor.getModel().getValueInRange(editor.getSelection());
+  if (selection.trim().length === 0) {
+    appendConsole("No selection to run");
+    return;
+  }
+  await run(selection);
 }
 
 export async function openFile() {
@@ -49,14 +62,28 @@ export async function saveFile() {
   }
 }
 
+export function newFile() {
+  editor.setValue("");
+}
+
+export async function selectInterpreter() {
+  const selected = await open({ title: "Select Talea Interpreter" });
+  if (selected) {
+    interpreterPath = selected;
+  }
+}
+
 function appendConsole(text) {
   const el = document.getElementById("console");
   el.textContent += text + "\n";
   el.scrollTop = el.scrollHeight;
 }
 
-window.runCode = runCode;
+window.runFile = runFile;
+window.runSelection = runSelection;
 window.openFile = openFile;
 window.saveFile = saveFile;
+window.newFile = newFile;
+window.selectInterpreter = selectInterpreter;
 
 initMonaco();
