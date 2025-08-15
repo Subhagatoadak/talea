@@ -1,29 +1,26 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use gag::BufferRedirect;
-use std::io::Read;
-use talea::runtime::interpreter::Interpreter;
+use std::process::Command;
+use std::{fs, path::PathBuf};
 
 #[tauri::command]
 fn run_talea(code: String) -> Result<String, String> {
-    use talea::lexer::Lexer;
-    use talea::parser::Parser;
-    let mut output = String::new();
-    {
-        let mut redirect = BufferRedirect::stdout().map_err(|e| e.to_string())?;
-        let mut lexer = Lexer::new(&code);
-        let tokens = lexer.all_tokens();
-        let mut parser = Parser::new(tokens);
-        let ast = parser.parse().map_err(|e| format!("Parse Error: {}", e))?;
-        let mut interpreter = Interpreter::new();
-        interpreter
-            .execute(ast)
-            .map_err(|e| format!("Runtime Error: {}", e))?;
-        redirect
-            .read_to_string(&mut output)
-            .map_err(|e| e.to_string())?;
+    let mut file: PathBuf = std::env::temp_dir();
+    file.push("ide_tmp.tl");
+    fs::write(&file, code).map_err(|e| e.to_string())?;
+
+    let output = Command::new("talea")
+        .arg(&file)
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    let _ = fs::remove_file(&file);
+
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).to_string())
     }
-    Ok(output)
 }
 
 fn main() {

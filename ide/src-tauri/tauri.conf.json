@@ -25,10 +25,10 @@
           "windows": ["main"],
           "permissions": [
             "core:default",
-            "dialog:open",
-            "dialog:save",
-            "fs:read-file",
-            "fs:write-file"
+            "dialog:allow-open",
+            "dialog:allow-save",
+            "fs:read-files",
+            "fs:write-files"
           ]
         }
       ]
