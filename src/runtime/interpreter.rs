@@ -776,12 +776,7 @@ impl Interpreter {
         };
         let dest_name = self.get_identifier_name(destination)?;
 
-
         let chart_path = format!("{}_chart.png", dest_name);
-        let result_json = Python::with_gil(|py| -> PyResult<String> {
-            let code = r#"
-import io, json
-
         let result_json = Python::with_gil(|py| -> PyResult<String> {
             let code = r#"
 import io, json, base64
@@ -793,9 +788,6 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 def run_regression(csv, target, features, chart_path):
-
-def run_regression(csv, target, features):
-
     df = pd.read_csv(io.StringIO(csv))
     X = sm.add_constant(df[features])
     y = df[target]
@@ -812,7 +804,6 @@ def run_regression(csv, target, features):
     ax.plot([y.min(), y.max()], [y.min(), y.max()], 'r--')
     ax.set_xlabel('Actual')
     ax.set_ylabel('Predicted')
-
     fig.savefig(chart_path)
 
     buf = io.BytesIO()
@@ -826,8 +817,6 @@ def run_regression(csv, target, features):
         "coefficients": coeffs,
         "predictions": predictions.tolist(),
         "metrics": metrics,
-
-
         "chart": chart,
     }
     return json.dumps(result)
