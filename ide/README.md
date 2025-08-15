@@ -24,9 +24,12 @@ npm run tauri dev
 
 A window will open with the Talea editor. The toolbar provides:
 
+- **New** – start a fresh buffer
 - **Open** – load an existing `.talea` file
 - **Save** – write the current editor contents to disk
-- **Run** – execute the script and show results in the console pane
+- **Run Selection** – execute the highlighted lines
+- **Run File** – run the entire editor contents
+- **Interpreter** – choose a Talea executable to run scripts
 
 ## Building a Release
 

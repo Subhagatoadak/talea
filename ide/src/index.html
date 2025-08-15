@@ -11,9 +11,12 @@
 </head>
 <body>
   <div id="toolbar">
+    <button onclick="newFile()">New</button>
     <button onclick="openFile()">Open</button>
     <button onclick="saveFile()">Save</button>
-    <button onclick="runCode()">Run</button>
+    <button onclick="runSelection()">Run Selection</button>
+    <button onclick="runFile()">Run File</button>
+    <button onclick="selectInterpreter()">Interpreter</button>
   </div>
   <div id="editor"></div>
   <pre id="console"></pre>

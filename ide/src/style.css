@@ -3,13 +3,29 @@ body {
   height: 100vh;
   display: flex;
   flex-direction: column;
+  background: #1e1e1e;
+  color: #eee;
+  font-family: system-ui, sans-serif;
 }
 #toolbar {
-  padding: 4px;
-  background: #222;
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  background: #2b2b2b;
+  border-bottom: 1px solid #444;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
 }
 #toolbar button {
-  margin-right: 4px;
+  background: #3c3c3c;
+  border: none;
+  color: #eee;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+#toolbar button:hover {
+  background: #555;
 }
 #editor {
   flex: 1;
@@ -17,8 +33,10 @@ body {
 #console {
   height: 150px;
   overflow: auto;
-  background: #111;
+  background: #0e0e0e;
   color: #0f0;
   margin: 0;
-  padding: 4px;
+  padding: 8px;
+  border-top: 1px solid #444;
+  font-family: monospace;
 }
