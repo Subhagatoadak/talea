@@ -263,7 +263,7 @@ fn test_regress_outputs_metrics() {
     assert!(metrics.get("mape").is_some());
     assert!(metrics.get("rmse").is_some());
 
-    assert!(parsed.get("chart").is_none());
+    assert!(parsed.get("chart").is_some());
     let chart_path = "model_chart.png";
     assert!(std::path::Path::new(chart_path).exists());
     std::fs::remove_file(chart_path).unwrap();
