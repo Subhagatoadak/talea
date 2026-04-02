@@ -1,424 +1,185 @@
+# Talea
 
-# 🌿 Talea: A Plain-Language Programming Environment for Textual Analysis
+Talea is a plain-language programming environment for text analysis, lightweight data work, and research workflows. It combines an English-like language, a Rust runtime, optional Python/R/database integrations, a bytecode compiler/VM, and a small Tauri-based desktop IDE.
 
-**Talea** is a human-first programming language and interactive environment built for natural language processing, textual analysis, and discourse research. It is especially designed for users from the humanities, education, and the social sciences who want to leverage computational power without a steep programming learning curve.
+You can use Talea interactively in a REPL, run `.tea` or `.talea` scripts, translate prose into executable Talea, or compile scripts to `.taleac` bytecode.
 
-Named after the Latin word *talea*—meaning "a narrative thread" or "a story branch"—Talea's core philosophy is to make complex NLP workflows as intuitive as writing a list of instructions. It achieves this by combining a simple, English-like syntax with the immense power of existing programming ecosystems like Python and R.
+## What Is In The Repo
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+- `src/`: core lexer, parser, AST, interpreter, compiler, VM, OpenAI helper, memory, and database modules
+- `examples/`: sample Talea scripts plus a Rust OpenAI example
+- `tests/`: parser and interpreter coverage
+- `docs/`: guides for language usage, NLP methods, statistics, and command reference
+- `ide/`: Tauri + Monaco desktop editor for working with Talea files
 
----
+## Current Capabilities
 
-## ✨ Features
+- Plain-English commands for loading files, cleaning text, tokenizing, counting, searching, replacing, splitting, joining, saving, and printing
+- Control flow and functions: `if`, `for each`, `while`, `try/catch`, `break`, `continue`, `return`, and user-defined functions
+- Parallel execution with Rayon plus named channels for producer/consumer style workflows
+- Memory controls such as explicit `free`, memory limits, and scoped allocation blocks
+- Python interop for importing modules and calling functions or methods
+- Optional R support via `--features r`
+- Optional PostgreSQL, MySQL, and SQLite support via `--features db`
+- Natural-language to Talea translation with `--english` and `--to-talea`
+- Bytecode compilation with `--compile` and execution with `--run`
+- OpenAI access from Talea scripts and from the Rust library
 
-* **📝 Plain-English Syntax:** Write code that reads like instructions, not cryptic symbols. `load "file.txt" as my_text` does exactly what it says.
-* **🔌 Pluggable Backends:** Seamlessly use powerful libraries from other languages — **Python (spaCy, pandas, scikit-learn)** and **R (quanteda, stats)** — with a clear path to add more.
-* **📚 Library Imports:** Bring in any Python or R package or script and call its functions directly from Talea.
-* **💡 Interactive by Design:** A full REPL with persistent history and multi-line block support provides immediate feedback on your commands.
-* **⚙️ Rich Built-in Logic:** File I/O, variable manipulation, arithmetic, filtering, regex, date math, and full NLP pipelines — all built-in.
-* **🧩 User-Defined Functions:** Define reusable functions in plain English: `define the function greet with inputs name as ... end`.
-* **🔁 Control Flow:** `if/else`, `while`, `for each`, `break`, `continue`, `return`, and `try/catch` error handling.
-* **⚡ Parallel Execution:** `parallel map` and `parallel for each` run iterations across CPU cores via Rayon. `spawn` launches background threads. Named channels enable producer-consumer pipelines.
-* **🗄️ Database Access:** Connect to PostgreSQL, MySQL, or SQLite from Talea scripts (`--features db`). Query, insert, execute, and close connections with English-style commands.
-* **🧠 Memory Management:** Set process-wide memory ceilings (`set memory limit to 512 megabytes`), free variables explicitly (`free my_var`), and use arena-scoped allocation for heavy text passes.
-* **🔢 Bytecode Compiler + VM:** An optional compilation tier (`--compile` flag) lowers Talea ASTs to a compact bytecode format (`.taleac`) executed by a stack-based VM for faster loop-heavy workloads.
-* **📖 Natural-Language Transpiler:** Pass a plain prose paragraph with `--english` and Talea will convert it into runnable code using a corpus-driven intent-matching pipeline — no API key required.
-* **🌱 Extensible Core:** The modular architecture (Lexer → Parser → Interpreter / Compiler / VM / NL-Parser) makes it easy to add new commands and backends.
-* **💻 Cross-Platform:** macOS, Linux, and Windows — plus a Tauri-based desktop IDE with Monaco editor.
+## Prerequisites
 
-To learn more, see the [Complete Guide](docs/complete_guide.md) for installation, usage, saving results, and analysis commands. For a comprehensive reference of commands, NLP methods, statistics, and common errors, consult the [All-in-One Guide](docs/all_in_one_guide.md).
+- A current stable Rust toolchain installed with `rustup`
+- A working C toolchain
+- Python if you want Python-backed commands or library imports
+- Node.js and `npm` only if you want to run the desktop IDE
 
----
+Platform notes:
 
-## 🚀 Getting Started
+- macOS: install Xcode Command Line Tools before building Rust projects
+- Linux: install a standard native build toolchain such as `build-essential` or `clang`
+- Windows: use the MSVC Rust toolchain and see `windows_user_guide.md` for the current Windows-specific setup
 
-Follow these steps to get the Talea development environment running on your machine.
+Python notes:
 
-### 1. Prerequisites
+- On macOS and Linux, the root crate tries to download an embedded Python build on first compile unless `TALEA_USE_SYSTEM_PYTHON=1` is set
+- If you prefer your own Python installation, set `TALEA_USE_SYSTEM_PYTHON=1` and use your normal PyO3/Python environment setup
+- Python-backed examples and tests may require additional packages such as `pandas`, `statsmodels`, or `matplotlib`
 
-You will need the following software installed on your system:
-
-1.  **Rust:** Talea's core is built in Rust. Install it via [rustup.rs](https://rustup.rs/).
-    ```bash
-    curl --proto '=https' --tlsv1.2 -sSf [https://sh.rustup.rs](https://sh.rustup.rs) | sh
-    ```
-2.  **Python:** Talea uses Python for its advanced NLP capabilities. We recommend installing it with Conda for the best experience, but any Python 3.8+ installation will work.
-    * **Recommended:** Install [Miniconda](https://docs.conda.io/projects/miniconda/en/latest/) or [Anaconda](https://www.anaconda.com/download).
-
-3.  **Python NLP Libraries:** Once Python is installed, you need `spacy` and its English model.
-    ```bash
-    # It's best practice to create a dedicated environment
-    conda create --name talea-nlp python=3.11
-    conda activate talea-nlp
-
-    # Install spaCy and its model
-    pip install -U spacy
-    python -m spacy download en_core_web_md
-    ```
-
-### 2. Clone & Configure the Project
-
-1.  **Clone the Repository:**
-    ```bash
-    git clone [https://github.com/your-username/talea.git](https://github.com/your-username/talea.git)
-    cd talea
-    ```
-
-2.  **Configure the Linker:** This is a crucial one-time setup step to tell Rust where to find your Python library.
-    * **macOS/Linux:**
-        * First, activate your conda environment: `conda activate talea-nlp`
-        * Find your Python library path: `echo $CONDA_PREFIX/lib`
-        * Create a file named `.cargo/config.toml` in the project root.
-        * Add the following content, replacing the example path with the one from the `echo` command:
-            ```toml
-            # .cargo/config.toml
-            [build]
-            rustflags = [
-                "-L", "/path/to/your/conda/env/lib", # e.g., /opt/anaconda3/envs/talea-nlp/lib
-                "-C", "link-arg=-Wl,-rpath,/path/to/your/conda/env/lib" # Add this line for macOS/Linux
-            ]
-            ```
-    * **Windows:**
-        * The setup is similar but typically requires linking to the `python3.lib` file. Create `.cargo/config.toml` and add:
-            ```toml
-            # .cargo/config.toml
-            [build]
-            rustflags = ["-L", "C:\\path\\to\\your\\conda\\env\\libs"]
-            ```
-
-### 3. Build and Run
-
-With the prerequisites and configuration in place, running Talea is simple.
+## Quick Start
 
 ```bash
-# Make sure your conda environment is active!
-conda activate talea-nlp
-
-# Build and run the Talea REPL
+git clone https://github.com/Subhagatoadak/talea.git
+cd talea
 cargo run
-````
+```
 
-You should be greeted by the Talea prompt: `Talea REPL v0.2.0 (Python-Powered)`.
+That starts the REPL:
 
-### 4. Run Talea Scripts
+```text
+> 
+```
 
-Commands can also be stored in a file with the `.talea` extension and executed non-interactively.
+On the first build, Talea may spend extra time downloading its embedded Python runtime.
+
+## Running Scripts
+
+Talea accepts both `.tea` and `.talea` source files.
+
+```bash
+cargo run -- examples/hello_world.tea
+cargo run -- examples/descriptive_stats.tea
+```
+
+Minimal example:
 
 ```talea
-# hello_world.talea
 load "article.txt" as article
-print article
+tokenize article as tokens
+count words in article as word_count
+print word_count
 ```
 
-Run the file by passing it to the Talea binary:
+## CLI Modes
+
+Run a Talea script or let Talea auto-detect English prose:
 
 ```bash
-cargo run -- examples/hello_world.talea
+cargo run -- path/to/script.tea
 ```
 
-Lines beginning with `#` are treated as comments and ignored.
-
-### 5. Talea IDE (optional)
-
-A lightweight graphical editor is available in the [`ide/`](ide/README.md) directory. It uses Tauri and the Monaco editor to provide a windowed environment where you can open, edit, run, and save `.talea` scripts. Refer to its [README](ide/README.md) for installation and usage details. To generate an installable bundle of the IDE, run `scripts/install_dependencies.sh`, which installs the required JavaScript packages and builds platform-specific installers in `ide/src-tauri/target/release/bundle`.
-
------
-
-## 📖 Example Workflow
-
-Here is a sample session demonstrating some of Talea's capabilities.
-
-```talea
-# Create a text file named article.txt with some content first.
-
-> load "article.txt" as my_article
-[Interpreter: Successfully read 153 bytes from 'article.txt']
-
-# Use Python/spaCy to perform Named Entity Recognition
-> tag my_article with ner as entities
-[Interpreter: Calling Python/spaCy for NER tagging...]
-[Interpreter: Tagging complete.]
-
-> print entities
-[List with 6 items]:
-[Tuple([String("Evelyn Reed"), String("PERSON")]), Tuple([String("Berlin"), String("GPE")]), ...]
-
-# Use Python/spaCy to get the base form (lemma) of each word
-> lemmatize my_article as lemmas
-[Interpreter: Calling Python/spaCy for lemmatization...]
-[Interpreter: Lemmatization complete.]
-
-> print lemmas
-[List with 31 items]:
-[String("Dr."), String("Evelyn"), String("Reed"), String(","), String("a"), ...]
-
-# Create a numeric variable and perform calculations
-> define my_count as 150
-> multiply my_count by 2 as new_count
-> print new_count
-300
-
-# Save your results to a file
-> save entities to "results.csv"
-[Interpreter: Successfully saved content to 'results.csv']
-```
-
-### Importing Python and R Libraries
-
-> **Note:** R support requires building Talea with the `r` feature. Run `cargo run --features r` (or `cargo build --features r`) to enable it.
-
-You can load external packages or scripts and call their functions directly:
-
-```talea
-> use python
-> import python "math" as m
-> call m sqrt 16 as py_result
-> print py_result
-4
-
-> use r
-> import r "stats" as s
-> call s sqrt 25 as r_result
-> print r_result
-5
-```
-
-### Advanced NLP Use Cases (Python & R)
-
-Talea can orchestrate sophisticated natural language processing pipelines by calling out to the Python and R ecosystems. Below are a few illustrative scenarios:
-
-#### Python: Sentiment Analysis with TextBlob
-
-```talea
-> use python
-> import python "textblob" as tb
-> call tb TextBlob "Talea makes NLP easy" as blob
-> callmethod blob sentiment as sentiment
-> print sentiment
-```
-
-#### Built-in Bag-of-Words
-
-Generate a bag-of-words representation without relying on Python:
-
-```talea
-> load "article.txt" as my_article
-> tokenize my_article as tokens
-> doc2bow tokens as bow
-> print bow
-```
-
-#### R: Token Frequency with quanteda
-
-```talea
-> use r
-> import r "quanteda" as q
-> call q tokens my_article as r_tokens
-> call q dfm r_tokens as counts
-> print counts
-```
-
-These examples combine Talea's English-like syntax with powerful packages to perform advanced NLP without leaving the REPL.
-
-### Installing Missing Libraries
-
-If a required package isn't present, Talea can install it for you:
-
-```talea
-> install python "textblob"
-> install r "quanteda"
-```
-
-After installation, you can `import` the module and use it immediately. Talea sets the CRAN mirror to `https://cloud.r-project.org` for R packages, so you won't be prompted to choose one.
-
------
-
-### Talking to OpenAI in plain English
-
-```rust
-use talea::openai_pipeline::OpenAiPipeline;
-let pipeline = OpenAiPipeline::from_env("gpt-3.5-turbo").unwrap();
-let reply = pipeline.ask("Write a short haiku about the sea.").unwrap();
-println!("{}", reply);
-```
-
-Inside the Talea REPL you can even set environment variables with plain English:
-
-```
-> set environment variable OPENAI_API_KEY to "sk-your-key"
-> openai "Write a haiku about rust" as poem
-> print poem
-> openai "Write a haiku about rust" with "gpt-4" to "haiku.txt"
-```
-
-The last command asks the `gpt-4` model for a poem and saves the reply into
-`haiku.txt` in one step.
-
------
-
-### One-line OpenAI Pipeline
-
-If you have an OpenAI API key in the `OPENAI_API_KEY` environment variable,
-Talea can generate text and save it straight to a file with a single call:
-
-```rust
-use talea::openai_pipeline::OpenAiPipeline;
-
-OpenAiPipeline::quick(
-    "Explain the significance of the Renaissance.",
-    "renaissance.txt",
-).unwrap();
-```
-
-The model's reply will be written to `renaissance.txt`.
-
-### Working with Data
-
-Curious about numbers? The friendly [Statistics Guide](docs/statistics.md) walks you through loading datasets, computing descriptive stats, running tests, fitting regressions, and turning results into prose with OpenAI.
-
------
-
-## 📚 Command Reference
-
-Talea understands a growing set of plain-English commands. The table below summarizes the currently supported ones:
-
-| Command | Purpose | Example |
-|--------|---------|---------|
-| `load` | Read a file into a variable | `load "file.txt" as my_text` |
-| `tokenize` | Split text into tokens | `tokenize my_text as tokens` |
-| `doc2bow` | Convert tokens to bag-of-words | `doc2bow tokens as bow` |
-| `split` | Split text by unit (word, sentence, line, character, paragraph) | `split lines in my_text as lines` |
-| `join` | Join list items into text | `join words in tokens with " " as sentence` |
-| `replace` | Replace text patterns | `replace "cat" with "dog" in my_text as new_text` |
-| `clean` | Remove punctuation/whitespace | `clean my_text as cleaned` |
-| `normalize` | Normalize text (e.g., lowercase) | `normalize my_text as clean_text` |
-| `lowercase/uppercase` | Change text case | `lowercase my_text as lower_text` |
-| `stem` | Stem words | `stem my_text as stems` |
-| `lemmatize` | Lemmatize text via spaCy | `lemmatize my_text as lemmas` |
-| `tag` | NLP tagging with spaCy (NER, POS) | `tag my_text with ner as entities` |
-| `summarize` | Summarize text | `summarize my_text as summary` |
-| `paraphrase` | Rephrase text using OpenAI | `paraphrase my_text as paraphrased` |
-| `translate` | Translate text to another language | `translate my_text to "spanish" as spanish_text` |
-| `sentiment` | Analyze sentiment of text | `sentiment my_text as mood` |
-| `wordcloud` | Generate word frequency list | `wordcloud my_text as cloud` |
-| `association` | Analyze word associations | `association tokens as pairs` |
-| `similarity` | Measure semantic similarity between texts | `similarity text1 to text2 as score` |
-| `semanticsearch` | Search documents by semantic similarity | `semanticsearch "rust" in docs as results` |
-| `search` | Keyword or key phrase search | `search "rust" in my_text as hits` |
-| `phrase` | Extract phrases from text | `phrase my_text as phrases` |
-| `paragraph` | Work with paragraphs | `paragraph my_text as paras` |
-| `concordance` | Find sentences containing a word | `concordance "rust" in my_text as contexts` |
-| `count` | Count units in a list or text | `count words in my_text as word_count` |
-| `filter` | Filter lists by condition | `filter tokens containing "rust" as rust_tokens` |
-| `remove` | Remove items from a list | `remove stopwords from tokens as clean_tokens` |
-| `slice` | Slice list by index | `slice tokens from 0 to 5 as first_tokens` |
-| `sort` | Sort list items | `sort tokens ascending as sorted_tokens` |
-| `group` | Group list items by key | `group tokens by length as groups` |
-| `first/last` | Retrieve first or last item | `first token in tokens as start` |
-| `sample` | Random sample from list | `sample 10 from tokens as sample_tokens` |
-| `define` | Create variables | `define threshold as 10` |
-| `set environment variable` | Set OS environment variables | `set environment variable API_KEY to "123"` |
-| `today` | Get the current date | `today as current_date` |
-| `format date` | Format a date string | `format date current_date with "%Y-%m-%d" as formatted` |
-| `parse date` | Parse text into a date | `parse date "2024-01-01" as d` |
-| `date diff` | Difference between dates | `date diff start_date and end_date as days` |
-| `use` | Choose backend language | `use python` |
-| `import` | Import a Python or R module | `import python "math" as m` |
-| `install` | Install a Python module or R package | `install python "textblob"` |
-| `call` | Invoke a function from an imported module | `call m sqrt 16 as result` |
-| `callmethod` | Invoke a method on an object | `callmethod blob sentiment as sentiment` |
-| `for each` | Loop over lists | `for each item in items do print item end` |
-| `while` | Repeat while condition holds | `while count is greater than 0 do ... end` |
-| `if / else` | Conditional branching | `if score is greater than 5 do ... else ... end` |
-| `try / catch` | Error handling | `try ... catch error_msg ... end` |
-| `define the function` | User-defined function | `define the function add with inputs a, b as ... end` |
-| `call` (function) | Call a user-defined function | `call add with 3, 4 as result` |
-| `return` | Return a value from a function | `return total` |
-| `break` / `continue` | Loop control | `break` / `continue` |
-| `parallel map` | Map in parallel across CPU cores | `parallel map each x in nums do ... end as results` |
-| `parallel for each` | Side-effect loop in parallel | `parallel for each doc in docs do ... end` |
-| `spawn` | Launch a background thread | `spawn do ... end` |
-| `create channel` | Named MPSC channel | `create channel my_ch with capacity 100` |
-| `send to channel` | Send a value to a channel | `send result to channel my_ch` |
-| `receive from channel` | Receive a value from a channel | `receive from channel my_ch as msg` |
-| `free` | Free a variable's memory | `free my_var` |
-| `set memory limit` | Cap memory usage | `set memory limit to 512 megabytes` |
-| `print memory usage` | Show memory usage summary | `print memory usage` |
-| `with memory scope` | Arena-scoped allocation block | `with memory scope do ... end` |
-| `connect to` (db) | Open a database connection | `connect to postgres "..." as db` |
-| `query` (db) | Run a SELECT query | `query "SELECT * FROM t" in db as rows` |
-| `run` (db) | Execute a DML statement | `run "UPDATE t SET x=1" in db` |
-| `insert into` (db) | Insert a row | `insert my_data into db table "users"` |
-| `close` (db) | Close a database connection | `close db` |
-| `openai` | Query OpenAI models | `openai "Hello" as reply` |
-| `add/subtract/multiply/divide` | Arithmetic operations | `add 5 to count as new_count` |
-| `save` | Write content to a file | `save results to "out.txt"` |
-| `print` | Display a value | `print summary` |
-
-Custom commands can be added in Rust by extending the parser and interpreter, enabling domain-specific workflows.
-
----
-
-## 🏗️ Architecture Overview
-
-```
-Source (.talea)  ──►  Lexer  ──►  Parser  ──►  AST
-                                                │
-                                    ┌───────────┼───────────┐
-                                    ▼           ▼           ▼
-                              Interpreter   Compiler     NL-Parser
-                             (tree-walk)   (bytecode)  (plain prose)
-                                    │           │
-                                    └──────►  VM
-                                         (stack-based)
-```
-
-| Module | Purpose |
-|--------|---------|
-| `src/lexer.rs` | Tokenisation with English synonyms and glue-word handling |
-| `src/parser.rs` | Recursive-descent parser producing typed AST nodes |
-| `src/ast.rs` | Full AST: 60+ statement variants covering all language features |
-| `src/runtime/mod.rs` | `TaleaValue` (15 variants) + scoped `Environment` stack |
-| `src/runtime/interpreter.rs` | Tree-walking interpreter — the primary execution path |
-| `src/compiler.rs` | Lowers AST → `Chunk` (opcode stream + constant pool) |
-| `src/bytecode.rs` | `OpCode` enum and `Chunk` serialisable to `.taleac` |
-| `src/vm.rs` | Stack-based virtual machine executing `Chunk` |
-| `src/nl_parser.rs` | 5-stage English prose → AST transpiler (no external API) |
-| `src/memory.rs` | `MemoryTracker` + `TaleaArena` (bumpalo-backed) |
-| `src/db.rs` | `ConnectionRegistry` for Postgres/MySQL/SQLite via sqlx |
-| `src/openai_pipeline.rs` | Thin OpenAI REST client |
-
-## 🏗️ Building a macOS Release
-
-Talea ships with a helper script that bundles the compiled binary into a
-macOS `.app` and DMG disk image.
+Translate prose to Talea and execute it:
 
 ```bash
-# Run on macOS with Node.js installed
-scripts/build_dmg.sh
+cargo run -- --english notes.txt
 ```
 
-The script installs the IDE's npm dependencies if necessary, builds the
-Tauri application, and on macOS opens the bundled Talea IDE so the
-interpreter is immediately available. The resulting `dist/Talea-<version>.dmg`
-contains the core application. If the `examples/` directory is present it
-is archived as `Talea-examples.tar.gz` for an optional download.
+Translate prose to Talea without running it:
 
-## ❤️ Contributing
+```bash
+cargo run -- --to-talea notes.txt
+```
 
-Contributions are welcome\! Talea is an ambitious project, and help is needed in all areas.
+Compile a Talea script to bytecode:
 
-  * **Adding Commands:** The easiest way to contribute is to add a new command. Follow the pattern in `parser.rs` and `interpreter.rs`.
-  * **Implementing Logic:** Find a command that is parsed but not yet implemented (like `sort` or `find`) and add the execution logic.
-  * **Improving the FFI:** Add support for more Python/R libraries or improve the existing bridge.
-  * **Documentation:** Improving this README, adding tutorials, or documenting the language specification in the `/docs` folder is incredibly valuable.
-  * **Bug Fixes & Error Handling:** Improve the user-friendliness of runtime and parse errors.
+```bash
+cargo run -- --compile examples/hello_world.tea
+```
 
-Please feel free to open an issue to discuss your ideas or submit a pull request.
+Run compiled bytecode:
 
------
+```bash
+cargo run -- --run examples/hello_world.taleac
+```
 
-## 📜 License
+## Optional Features
 
-Talea is distributed under the terms of the MIT license. See [LICENSE](LICENSE.md) for details.
+Enable R support:
 
+```bash
+cargo run --features r
+```
+
+Enable database support:
+
+```bash
+cargo run --features db -- examples/dataset_loading.tea
+```
+
+Use OpenAI from Talea by setting `OPENAI_API_KEY`:
+
+```bash
+export OPENAI_API_KEY=your_key_here
+cargo run
+```
+
+Example Talea commands:
+
+```talea
+set environment variable OPENAI_API_KEY to "sk-..."
+openai "Write a short summary of this text" as summary
+print summary
+```
+
+## IDE
+
+The desktop editor lives in [`ide/`](ide/) and is documented in [`ide/README.md`](ide/README.md).
+
+```bash
+cd ide
+npm install
+npm run tauri dev
+```
+
+The IDE runs Talea through an external interpreter binary. If `talea` is not on your `PATH`, use the IDE's interpreter picker to point it at the built executable.
+
+To build a release bundle:
+
+```bash
+./scripts/install_dependencies.sh
+```
+
+Artifacts are written under `ide/src-tauri/target/release/bundle`.
+
+On macOS, `./scripts/build_dmg.sh` also copies generated bundles into `dist/`.
+
+## Documentation
+
+- [`docs/complete_guide.md`](docs/complete_guide.md): end-to-end getting started guide
+- [`docs/all_in_one_guide.md`](docs/all_in_one_guide.md): consolidated command and workflow reference
+- [`docs/user_guide.md`](docs/user_guide.md): short usage walkthrough
+- [`docs/statistics.md`](docs/statistics.md): statistical analysis commands and examples
+- [`docs/nlp_methods.md`](docs/nlp_methods.md): NLP-related methods
+- [`windows_user_guide.md`](windows_user_guide.md): Windows-specific setup
+
+## Development
+
+Run the test suite with:
+
+```bash
+cargo test
+```
+
+If Rust fails during linking on macOS with an `xcode-select` or missing developer tools error, install Xcode Command Line Tools first.
+
+## License
+
+Talea is distributed under the MIT license. See `LICENSE`.
