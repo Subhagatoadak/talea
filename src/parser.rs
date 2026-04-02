@@ -1,6 +1,8 @@
 // src/parser.rs
 
-use crate::ast::{ArithmeticOp, Backend, ComparisonOp, Expression, FilterCondition, Statement};
+use crate::ast::{
+    ArithmeticOp, Backend, ComparisonOp, Expression, FilterCondition, LogicalOp, Statement,
+};
 use crate::lexer::Token;
 
 pub struct Parser {
@@ -86,6 +88,10 @@ impl Parser {
             Some(Token::Call) => self.parse_call_statement(),
             Some(Token::If) => self.parse_if_statement(),
             Some(Token::For) => self.parse_foreach_statement(),
+            Some(Token::While) => self.parse_while_statement(),
+            Some(Token::Break) => { self.advance(); Ok(Statement::Break) }
+            Some(Token::Continue) => { self.advance(); Ok(Statement::Continue) }
+            Some(Token::Return) => self.parse_return_statement(),
             Some(Token::Help) => {
                 self.advance();
                 Ok(Statement::Help)
@@ -93,11 +99,37 @@ impl Parser {
             Some(Token::Identifier(s)) if s.eq_ignore_ascii_case("openai") => {
                 self.parse_openai_statement()
             }
-            Some(Token::Define) => self.parse_define_statement(),
+            // --- Error handling ---
+            Some(Token::Try) => self.parse_try_catch_statement(),
+            // --- Functions ---
+            Some(Token::Function) => self.parse_function_def_statement(),
+            // `define the function …` — Define token followed by "the function"
+            Some(Token::Define) => self.parse_define_or_function_statement(),
+            // --- Parallelism ---
+            Some(Token::Parallel) => self.parse_parallel_statement(),
+            Some(Token::Spawn) => self.parse_spawn_statement(),
+            Some(Token::Send) => self.parse_send_to_channel_statement(),
+            Some(Token::Receive) => self.parse_recv_from_channel_statement(),
+            Some(Token::Create) => self.parse_create_statement(),
+            Some(Token::Collect) => self.parse_collect_statement(),
+            // --- Memory ---
+            Some(Token::Free) => self.parse_free_statement(),
+            Some(Token::Memory) => self.parse_memory_statement(),
+            // `with memory scope do … end`
+            Some(Token::With) => self.parse_with_statement(),
+            // --- Database ---
+            Some(Token::Connect) => self.parse_db_connect_statement(),
+            Some(Token::Query) => self.parse_db_query_statement(),
+            Some(Token::Insert) => self.parse_db_insert_statement(),
+            Some(Token::Run) => self.parse_db_execute_statement(),
+            Some(Token::Close) => self.parse_db_close_statement(),
+            // --- Arithmetic ---
             Some(Token::Add) => self.parse_arithmetic_statement(ArithmeticOp::Add),
             Some(Token::Subtract) => self.parse_arithmetic_statement(ArithmeticOp::Subtract),
             Some(Token::Multiply) => self.parse_arithmetic_statement(ArithmeticOp::Multiply),
             Some(Token::Divide) => self.parse_arithmetic_statement(ArithmeticOp::Divide),
+            Some(Token::Modulo) => self.parse_arithmetic_statement(ArithmeticOp::Modulo),
+            Some(Token::Power) => self.parse_arithmetic_statement(ArithmeticOp::Power),
             Some(Token::Exit) | Some(Token::Quit) => std::process::exit(0),
             Some(_) => {
                 let expr = self.parse_expression()?;
@@ -660,7 +692,39 @@ impl Parser {
 
     fn parse_call_statement(&mut self) -> Result<Statement, String> {
         self.advance(); // consume 'call'
-        let library = self.parse_identifier_expression()?;
+
+        // Peek ahead: if the next identifier is NOT followed by another
+        // identifier before an 'as', treat it as a user-function call.
+        // Pattern: `call FUNCNAME with arg1, arg2 as dest`
+        //           `call FUNCNAME arg1 arg2 as dest`  (library.function form)
+        let first = self.parse_identifier_expression()?;
+
+        // Check if this looks like a user-defined function call (single name, then 'with' or 'as')
+        let is_user_func = matches!(
+            self.current_token(),
+            Some(Token::With) | Some(Token::As) | Some(Token::Eof) | None
+        );
+
+        if is_user_func {
+            let func_name = if let Expression::Identifier(n) = first { n }
+                else { return Err("Expected function name".to_string()); };
+            // consume optional 'with'
+            if self.current_token() == Some(&Token::With) { self.advance(); }
+            let mut args = Vec::new();
+            while let Some(tok) = self.current_token() {
+                if matches!(tok, Token::As | Token::Eof) { break; }
+                args.push(self.parse_expression()?);
+                if self.current_token() == Some(&Token::Comma) { self.advance(); }
+            }
+            let destination = if self.current_token() == Some(&Token::As) {
+                self.advance();
+                Some(self.parse_identifier_expression()?)
+            } else { None };
+            return Ok(Statement::FunctionCall { name: func_name, args, destination });
+        }
+
+        // Otherwise fall through to library.function call
+        let library = first;
         let function = self.parse_identifier_expression()?;
         let mut args = Vec::new();
         while let Some(tok) = self.current_token() {
@@ -967,32 +1031,62 @@ impl Parser {
 
     fn parse_comparison(&mut self, left: Expression) -> Result<Expression, String> {
         let mut expr = left;
+
+        // optional 'is' connector
         if self.current_token() == Some(&Token::Is) {
             self.advance();
         }
+        // optional 'not' for `is not equal`
+        let negate = if self.current_token() == Some(&Token::Not) {
+            self.advance();
+            true
+        } else {
+            false
+        };
+
         let op = if self.current_token() == Some(&Token::Greater)
             && self.peek_token() == Some(&Token::Than)
         {
-            self.advance();
-            self.advance();
+            self.advance(); self.advance();
             Some(ComparisonOp::GreaterThan)
         } else if self.current_token() == Some(&Token::Less)
             && self.peek_token() == Some(&Token::Than)
         {
-            self.advance();
-            self.advance();
+            self.advance(); self.advance();
             Some(ComparisonOp::LessThan)
         } else if self.current_token() == Some(&Token::Equals) {
             self.advance();
             Some(ComparisonOp::Equals)
+        } else if self.current_token() == Some(&Token::NotEquals) {
+            self.advance();
+            Some(ComparisonOp::NotEquals)
         } else {
             None
         };
 
         if let Some(op) = op {
-            let right = self.parse_expression()?;
-            expr = Expression::Comparison(Box::new(expr), op, Box::new(right));
+            let right = self.parse_primary()?;
+            let cmp = Expression::Comparison(Box::new(expr), op, Box::new(right));
+            expr = if negate { Expression::Not(Box::new(cmp)) } else { cmp };
         }
+
+        // Chain logical `and` / `or`
+        loop {
+            let logical_op = match self.current_token() {
+                Some(Token::And) => { self.advance(); Some(LogicalOp::And) }
+                Some(Token::Or)  => { self.advance(); Some(LogicalOp::Or) }
+                _ => None,
+            };
+            match logical_op {
+                Some(op) => {
+                    let right = self.parse_primary()?;
+                    let right = self.parse_comparison(right)?;
+                    expr = Expression::Logical(Box::new(expr), op, Box::new(right));
+                }
+                None => break,
+            }
+        }
+
         Ok(expr)
     }
 
@@ -1005,6 +1099,26 @@ impl Parser {
             Some(Token::Number(v)) => {
                 self.advance();
                 Ok(Expression::Number(v))
+            }
+            // Bool literals
+            Some(Token::True) => {
+                self.advance();
+                Ok(Expression::Bool(true))
+            }
+            Some(Token::False) => {
+                self.advance();
+                Ok(Expression::Bool(false))
+            }
+            // Null literal: `nothing` / `null` / `none`
+            Some(Token::Nothing) => {
+                self.advance();
+                Ok(Expression::Null)
+            }
+            // `not EXPR`
+            Some(Token::Not) => {
+                self.advance();
+                let expr = self.parse_primary()?;
+                Ok(Expression::Not(Box::new(expr)))
             }
             Some(Token::LBracket) => self.parse_list_literal(),
             Some(_) => self.parse_identifier_expression(),
@@ -1090,6 +1204,445 @@ impl Parser {
                 token_to_string(tok)
             )),
             None => Err(format!("Expected '{}' but found end of input", expected)),
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // NEW: While loop
+    // ─────────────────────────────────────────────────────────────────────
+    fn parse_while_statement(&mut self) -> Result<Statement, String> {
+        self.advance(); // consume 'while'
+        let condition = self.parse_expression()?;
+        self.consume(Token::Do)?;
+        let mut body = Vec::new();
+        while !matches!(self.current_token(), Some(Token::End) | None) {
+            body.push(self.parse_statement()?);
+        }
+        self.consume(Token::End)?;
+        Ok(Statement::While { condition, body })
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // NEW: Return statement
+    // ─────────────────────────────────────────────────────────────────────
+    fn parse_return_statement(&mut self) -> Result<Statement, String> {
+        self.advance(); // consume 'return'
+        // 'return' with no expression → return nothing
+        if matches!(self.current_token(), Some(Token::Eof) | Some(Token::End) | None) {
+            return Ok(Statement::Return { value: None });
+        }
+        let value = self.parse_expression()?;
+        Ok(Statement::Return { value: Some(value) })
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // NEW: try … catch error_var … end
+    // ─────────────────────────────────────────────────────────────────────
+    fn parse_try_catch_statement(&mut self) -> Result<Statement, String> {
+        self.advance(); // consume 'try'
+        let mut try_body = Vec::new();
+        while !matches!(self.current_token(), Some(Token::Catch) | None) {
+            try_body.push(self.parse_statement()?);
+        }
+        self.consume(Token::Catch)?;
+        // the next token is the error variable name
+        let error_var = if let Some(Token::Identifier(name)) = self.current_token() {
+            let n = name.clone();
+            self.advance();
+            n
+        } else {
+            "error".to_string() // default name if omitted
+        };
+        let mut catch_body = Vec::new();
+        while !matches!(self.current_token(), Some(Token::End) | None) {
+            catch_body.push(self.parse_statement()?);
+        }
+        self.consume(Token::End)?;
+        Ok(Statement::TryCatch { try_body, error_var, catch_body })
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // NEW: function definition
+    //   `function greet with inputs name do … end`
+    // ─────────────────────────────────────────────────────────────────────
+    fn parse_function_def_statement(&mut self) -> Result<Statement, String> {
+        self.advance(); // consume 'function'
+        let name = if let Some(Token::Identifier(n)) = self.current_token() {
+            let n = n.clone();
+            self.advance();
+            n
+        } else {
+            return Err("Expected function name after 'function'".to_string());
+        };
+        let mut params = Vec::new();
+        if self.current_token() == Some(&Token::With) || self.current_token() == Some(&Token::Inputs) {
+            self.advance(); // consume 'with'
+            // consume optional 'inputs'
+            if self.current_token() == Some(&Token::Inputs) {
+                self.advance();
+            }
+            while let Some(Token::Identifier(p)) = self.current_token() {
+                params.push(p.clone());
+                self.advance();
+                if self.current_token() == Some(&Token::Comma) { self.advance(); }
+                else { break; }
+            }
+        }
+        // consume optional 'do' or 'as'
+        if matches!(self.current_token(), Some(Token::Do) | Some(Token::As)) {
+            self.advance();
+        }
+        let mut body = Vec::new();
+        while !matches!(self.current_token(), Some(Token::End) | None) {
+            body.push(self.parse_statement()?);
+        }
+        self.consume(Token::End)?;
+        Ok(Statement::FunctionDef { name, params, body })
+    }
+
+    // Dispatches either a variable `define` or a `define the function` form.
+    fn parse_define_or_function_statement(&mut self) -> Result<Statement, String> {
+        // peek: Define → skip glue words → if we see 'function', parse FunctionDef
+        let saved_pos = self.position;
+        self.advance(); // skip 'define'
+        // skip optional glue: 'the', 'a', identifiers
+        while let Some(Token::Identifier(_)) = self.current_token() {
+            let word = if let Some(Token::Identifier(w)) = self.current_token() { w.clone() } else { break; };
+            if word.eq_ignore_ascii_case("the") || word.eq_ignore_ascii_case("a") {
+                self.advance();
+            } else {
+                break;
+            }
+        }
+        if self.current_token() == Some(&Token::Function) {
+            // rewind and let parse_function_def handle it
+            self.position = saved_pos;
+            self.advance(); // skip 'define'
+            // skip glue
+            while let Some(Token::Identifier(w)) = self.current_token() {
+                if w.eq_ignore_ascii_case("the") || w.eq_ignore_ascii_case("a") { self.advance(); }
+                else { break; }
+            }
+            self.parse_function_def_statement()
+        } else {
+            // restore and parse normal define
+            self.position = saved_pos;
+            self.parse_define_statement()
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // NEW: parallel map / parallel for
+    //   `parallel map each ITEM in LIST using N threads do … end and call it DEST`
+    //   `parallel for each ITEM in LIST using N threads do … end`
+    // ─────────────────────────────────────────────────────────────────────
+    fn parse_parallel_statement(&mut self) -> Result<Statement, String> {
+        self.advance(); // consume 'parallel'
+        match self.current_token() {
+            Some(Token::Map) => {
+                self.advance(); // consume 'map'
+                // optional 'each'
+                if self.current_token() == Some(&Token::Each) { self.advance(); }
+                let item_expr = self.parse_identifier_expression()?;
+                let item = if let Expression::Identifier(n) = item_expr { n }
+                    else { return Err("Expected loop variable in parallel map".to_string()); };
+                self.consume(Token::In)?;
+                let list = self.parse_expression()?;
+                let threads = self.parse_optional_threads()?;
+                self.consume(Token::Do)?;
+                let mut body = Vec::new();
+                while !matches!(self.current_token(), Some(Token::End) | None) {
+                    body.push(self.parse_statement()?);
+                }
+                self.consume(Token::End)?;
+                // optional `and call it DEST`
+                self.skip_glue_words();
+                let destination = if self.current_token() == Some(&Token::As) {
+                    self.advance();
+                    self.parse_identifier_expression()?
+                } else {
+                    Expression::Identifier("_parallel_result".to_string())
+                };
+                Ok(Statement::ParallelMap { item, list, body, threads, destination })
+            }
+            Some(Token::For) => {
+                self.advance(); // consume 'for'
+                if self.current_token() == Some(&Token::Each) { self.advance(); }
+                let item_expr = self.parse_identifier_expression()?;
+                let item = if let Expression::Identifier(n) = item_expr { n }
+                    else { return Err("Expected loop variable in parallel for".to_string()); };
+                self.consume(Token::In)?;
+                let list = self.parse_expression()?;
+                let threads = self.parse_optional_threads()?;
+                self.consume(Token::Do)?;
+                let mut body = Vec::new();
+                while !matches!(self.current_token(), Some(Token::End) | None) {
+                    body.push(self.parse_statement()?);
+                }
+                self.consume(Token::End)?;
+                Ok(Statement::ParallelFor { item, list, body, threads })
+            }
+            _ => Err("Expected 'map' or 'for' after 'parallel'".to_string()),
+        }
+    }
+
+    /// Parse optional `using N threads` clause.
+    fn parse_optional_threads(&mut self) -> Result<Option<Expression>, String> {
+        if matches!(self.current_token(), Some(Token::Using)) {
+            self.advance();
+            let n = self.parse_expression()?;
+            // consume optional 'threads'
+            if self.current_token() == Some(&Token::Threads) { self.advance(); }
+            Ok(Some(n))
+        } else {
+            Ok(None)
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // NEW: spawn do … end  /  spawn do … end and join as HANDLE
+    // ─────────────────────────────────────────────────────────────────────
+    fn parse_spawn_statement(&mut self) -> Result<Statement, String> {
+        self.advance(); // consume 'spawn'
+        self.consume(Token::Do)?;
+        let mut body = Vec::new();
+        while !matches!(self.current_token(), Some(Token::End) | None) {
+            body.push(self.parse_statement()?);
+        }
+        self.consume(Token::End)?;
+        // optional `and join as HANDLE`
+        let join_as = if matches!(self.current_token(), Some(Token::Join)) {
+            self.advance();
+            if self.current_token() == Some(&Token::As) { self.advance(); }
+            if let Some(Token::Identifier(name)) = self.current_token() {
+                let n = name.clone();
+                self.advance();
+                Some(n)
+            } else { None }
+        } else { None };
+        Ok(Statement::Spawn { body, join_as })
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // NEW: create channel NAME with capacity N
+    //      create channel NAME
+    // ─────────────────────────────────────────────────────────────────────
+    fn parse_create_statement(&mut self) -> Result<Statement, String> {
+        self.advance(); // consume 'create'
+        if self.current_token() == Some(&Token::Channel) {
+            self.advance(); // consume 'channel'
+            let name = if let Some(Token::Identifier(n)) = self.current_token() {
+                let n = n.clone(); self.advance(); n
+            } else {
+                return Err("Expected channel name after 'create channel'".to_string());
+            };
+            let capacity = if self.current_token() == Some(&Token::With) {
+                self.advance();
+                if self.current_token() == Some(&Token::Capacity) { self.advance(); }
+                Some(self.parse_expression()?)
+            } else { None };
+            Ok(Statement::CreateChannel { name, capacity })
+        } else {
+            Err("Expected 'channel' after 'create'".to_string())
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // NEW: send VALUE to channel NAME
+    // ─────────────────────────────────────────────────────────────────────
+    fn parse_send_to_channel_statement(&mut self) -> Result<Statement, String> {
+        self.advance(); // consume 'send'
+        let value = self.parse_expression()?;
+        self.consume(Token::To)?;
+        // optional 'channel'
+        if self.current_token() == Some(&Token::Channel) { self.advance(); }
+        let channel = self.parse_identifier_expression()?;
+        Ok(Statement::SendToChannel { channel, value })
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // NEW: receive from channel NAME and call it DEST
+    // ─────────────────────────────────────────────────────────────────────
+    fn parse_recv_from_channel_statement(&mut self) -> Result<Statement, String> {
+        self.advance(); // consume 'receive'
+        self.consume(Token::From)?;
+        if self.current_token() == Some(&Token::Channel) { self.advance(); }
+        let channel = self.parse_identifier_expression()?;
+        self.skip_glue_words();
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::RecvFromChannel { channel, destination })
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // NEW: collect CHANNEL as DEST  (drain all items from channel into list)
+    // ─────────────────────────────────────────────────────────────────────
+    fn parse_collect_statement(&mut self) -> Result<Statement, String> {
+        self.advance(); // consume 'collect'
+        let channel = self.parse_identifier_expression()?;
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        // reuse RecvFromChannel — interpreter handles drain
+        Ok(Statement::RecvFromChannel { channel, destination })
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // NEW: free VARIABLE
+    // ─────────────────────────────────────────────────────────────────────
+    fn parse_free_statement(&mut self) -> Result<Statement, String> {
+        self.advance(); // consume 'free'
+        let name = self.parse_identifier_expression()?;
+        Ok(Statement::Free { name })
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // NEW: set memory limit to 512 megabytes
+    //      print memory usage
+    // ─────────────────────────────────────────────────────────────────────
+    fn parse_memory_statement(&mut self) -> Result<Statement, String> {
+        self.advance(); // consume 'memory'
+        match self.current_token() {
+            Some(Token::Identifier(s)) if s.eq_ignore_ascii_case("usage") => {
+                self.advance();
+                Ok(Statement::PrintMemoryUsage)
+            }
+            Some(Token::Limit) => {
+                self.advance(); // consume 'limit'
+                self.consume(Token::To)?;
+                let mb = self.parse_expression()?;
+                if matches!(self.current_token(), Some(Token::Megabytes) | Some(Token::Gigabytes)) {
+                    self.advance();
+                }
+                Ok(Statement::SetMemoryLimit { megabytes: mb })
+            }
+            _ => Err("Expected 'limit' or 'usage' after 'memory'".to_string()),
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // NEW: with memory scope do … end
+    // ─────────────────────────────────────────────────────────────────────
+    fn parse_with_statement(&mut self) -> Result<Statement, String> {
+        self.advance(); // consume 'with'
+        // expect 'memory'
+        if self.current_token() == Some(&Token::Memory) { self.advance(); }
+        // expect 'scope'
+        if self.current_token() == Some(&Token::Scope) { self.advance(); }
+        self.consume(Token::Do)?;
+        let mut body = Vec::new();
+        while !matches!(self.current_token(), Some(Token::End) | None) {
+            body.push(self.parse_statement()?);
+        }
+        self.consume(Token::End)?;
+        Ok(Statement::MemoryScope { body })
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // NEW: connect to postgres "url" as db
+    // ─────────────────────────────────────────────────────────────────────
+    fn parse_db_connect_statement(&mut self) -> Result<Statement, String> {
+        self.advance(); // consume 'connect'
+        self.consume(Token::To)?;
+        let db_type = self.parse_expression()?;
+        let url = self.parse_expression()?;
+        self.consume(Token::As)?;
+        let alias_expr = self.parse_identifier_expression()?;
+        let alias = if let Expression::Identifier(n) = alias_expr { n }
+            else { return Err("Expected alias name for connection".to_string()); };
+        Ok(Statement::DbConnect { db_type, url, alias })
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // NEW: query "SQL" in CONN with parameters [x, y] as DEST
+    // ─────────────────────────────────────────────────────────────────────
+    fn parse_db_query_statement(&mut self) -> Result<Statement, String> {
+        self.advance(); // consume 'query'
+        let sql = self.parse_expression()?;
+        self.consume(Token::In)?;
+        let connection = self.parse_identifier_expression()?;
+        let mut params = Vec::new();
+        if self.current_token() == Some(&Token::With) {
+            self.advance();
+            if self.current_token() == Some(&Token::Parameters) { self.advance(); }
+            // parse list literal [x, y]
+            if self.current_token() == Some(&Token::LBracket) {
+                self.advance();
+                while !matches!(self.current_token(), Some(Token::RBracket) | None) {
+                    params.push(self.parse_expression()?);
+                    if self.current_token() == Some(&Token::Comma) { self.advance(); }
+                }
+                self.consume(Token::RBracket)?;
+            }
+        }
+        self.consume(Token::As)?;
+        let destination = self.parse_identifier_expression()?;
+        Ok(Statement::DbQuery { connection, sql, params, destination })
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // NEW: run "SQL" in CONN with parameters [x]
+    // ─────────────────────────────────────────────────────────────────────
+    fn parse_db_execute_statement(&mut self) -> Result<Statement, String> {
+        self.advance(); // consume 'run'
+        let sql = self.parse_expression()?;
+        self.consume(Token::In)?;
+        let connection = self.parse_identifier_expression()?;
+        let mut params = Vec::new();
+        if self.current_token() == Some(&Token::With) {
+            self.advance();
+            if self.current_token() == Some(&Token::Parameters) { self.advance(); }
+            if self.current_token() == Some(&Token::LBracket) {
+                self.advance();
+                while !matches!(self.current_token(), Some(Token::RBracket) | None) {
+                    params.push(self.parse_expression()?);
+                    if self.current_token() == Some(&Token::Comma) { self.advance(); }
+                }
+                self.consume(Token::RBracket)?;
+            }
+        }
+        Ok(Statement::DbExecute { connection, sql, params })
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // NEW: insert DATA into CONN table "TABLE_NAME"
+    // ─────────────────────────────────────────────────────────────────────
+    fn parse_db_insert_statement(&mut self) -> Result<Statement, String> {
+        self.advance(); // consume 'insert'
+        let data = self.parse_expression()?;
+        self.consume(Token::Into)?;
+        let connection = self.parse_identifier_expression()?;
+        // consume optional 'table'
+        if self.current_token() == Some(&Token::Table) { self.advance(); }
+        let table = self.parse_expression()?;
+        Ok(Statement::DbInsert { connection, table, data })
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // NEW: close CONN
+    // ─────────────────────────────────────────────────────────────────────
+    fn parse_db_close_statement(&mut self) -> Result<Statement, String> {
+        self.advance(); // consume 'close'
+        let connection = self.parse_identifier_expression()?;
+        Ok(Statement::DbClose { connection })
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Helper: skip optional English glue identifiers ("and", "call", "it",
+    // "the", "named", "called") between syntactic tokens.
+    // ─────────────────────────────────────────────────────────────────────
+    fn skip_glue_words(&mut self) {
+        const GLUE: &[&str] = &[
+            "and", "call", "it", "the", "a", "an", "named",
+            "called", "name", "store", "put", "then",
+        ];
+        loop {
+            match self.current_token() {
+                Some(Token::Identifier(w)) if GLUE.contains(&w.to_lowercase().as_str()) => {
+                    self.advance();
+                }
+                Some(Token::And) => { self.advance(); }
+                _ => break,
+            }
         }
     }
 

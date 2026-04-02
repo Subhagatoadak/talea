@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Library/Developer/CommandLineTools/usr/bin/**)",
+      "Read(//Applications/Xcode.app/Contents/Developer/usr/bin/**)",
+      "Read(//Applications/**)",
+      "Read(//Library/**)",
+      "Read(//usr/**)",
+      "Bash(/usr/bin/clang --version)",
+      "Bash(find / -name \"Xcode.app\" -maxdepth 5)",
+      "Read(//Volumes/**)",
+      "Read(//dev/**)",
+      "Bash(rustc --version)",
+      "Bash(cargo check:*)",
+      "Bash(rustfmt --check /Users/subhagatoadak/Documents/github2/talea/src/bytecode.rs)",
+      "Bash(rustfmt --check /Users/subhagatoadak/Documents/github2/talea/src/main.rs)",
+      "Bash(ls -la /Users/subhagatoadak/Documents/github2/talea/src/*.rs)"
+    ]
+  }
+}

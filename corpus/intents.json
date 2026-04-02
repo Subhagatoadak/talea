@@ -1,0 +1,689 @@
+{
+  "version": "1.0",
+  "description": "Talea natural-language intent corpus — 30+ intents, 10+ patterns each",
+  "intents": [
+    {
+      "name": "load_file",
+      "talea": "load \"{file}\" as {var}",
+      "description": "Load a text file into a variable",
+      "examples": [
+        { "english": "Load the file \"data.txt\" and call it my_text", "talea": "load \"data.txt\" as my_text" },
+        { "english": "Read \"article.txt\" into article", "talea": "load \"article.txt\" as article" }
+      ],
+      "patterns": [
+        "load the file {file} and call it {var}",
+        "load the file {file} and name it {var}",
+        "read {file} into {var}",
+        "open the document {file} and name it {var}",
+        "get contents of {file} as {var}",
+        "fetch the file {file} and store as {var}",
+        "load {file} as {var}",
+        "read {file} and store it as {var}",
+        "open {file} as {var}",
+        "import the file {file} and call it {var}",
+        "read in {file} and save as {var}",
+        "get the file {file} and name it {var}",
+        "bring in {file} as {var}",
+        "pull the file {file} and call it {var}"
+      ]
+    },
+    {
+      "name": "load_csv",
+      "talea": "load csv \"{file}\" as {dest}",
+      "description": "Load a CSV file into a variable",
+      "examples": [
+        { "english": "Load the csv file \"data.csv\" and call it my_data", "talea": "load csv \"data.csv\" as my_data" },
+        { "english": "Read the spreadsheet \"results.csv\" as results", "talea": "load csv \"results.csv\" as results" }
+      ],
+      "patterns": [
+        "load the csv file {file} and call it {dest}",
+        "read the csv {file} as {dest}",
+        "import the spreadsheet {file} and name it {dest}",
+        "load csv {file} as {dest}",
+        "open the csv {file} and call it {dest}",
+        "read the spreadsheet {file} and store as {dest}",
+        "load the spreadsheet {file} as {dest}",
+        "import csv {file} as {dest}",
+        "get the csv data from {file} and call it {dest}",
+        "read data from csv {file} into {dest}",
+        "fetch the csv file {file} as {dest}",
+        "load table {file} as {dest}"
+      ]
+    },
+    {
+      "name": "define_var",
+      "talea": "let {var} = {value}",
+      "description": "Define a variable",
+      "examples": [
+        { "english": "Let x be 42", "talea": "let x = 42" },
+        { "english": "Set greeting to \"hello world\"", "talea": "let greeting = \"hello world\"" }
+      ],
+      "patterns": [
+        "let {var} be {value}",
+        "set {var} to {value}",
+        "define {var} as {value}",
+        "create a variable called {var} with value {value}",
+        "store {value} in {var}",
+        "assign {value} to {var}",
+        "make {var} equal to {value}",
+        "put {value} into {var}",
+        "initialize {var} with {value}",
+        "create {var} and set it to {value}",
+        "declare {var} as {value}",
+        "give {var} the value {value}",
+        "set the variable {var} to {value}"
+      ]
+    },
+    {
+      "name": "print_var",
+      "talea": "print {var}",
+      "description": "Print a variable's value",
+      "examples": [
+        { "english": "Print my_text", "talea": "print my_text" },
+        { "english": "Show me the result", "talea": "print result" }
+      ],
+      "patterns": [
+        "print {var}",
+        "show me {var}",
+        "display {var}",
+        "output {var}",
+        "show the value of {var}",
+        "print out {var}",
+        "write out {var}",
+        "echo {var}",
+        "show {var}",
+        "print the value of {var}",
+        "display the contents of {var}",
+        "tell me what {var} contains",
+        "what is in {var}"
+      ]
+    },
+    {
+      "name": "save",
+      "talea": "save {source} to \"{dest}\"",
+      "description": "Save a variable to a file",
+      "examples": [
+        { "english": "Save my_text to output.txt", "talea": "save my_text to \"output.txt\"" },
+        { "english": "Write results to the file \"out.csv\"", "talea": "save results to \"out.csv\"" }
+      ],
+      "patterns": [
+        "save {source} to {dest}",
+        "write {source} to the file {dest}",
+        "export {source} to {dest}",
+        "save {source} as {dest}",
+        "write {source} into {dest}",
+        "dump {source} to {dest}",
+        "store {source} in the file {dest}",
+        "persist {source} to {dest}",
+        "write {source} out to {dest}",
+        "save the results in {source} to {dest}"
+      ]
+    },
+    {
+      "name": "tokenize",
+      "talea": "tokenize {source} as {dest}",
+      "description": "Tokenize text into words",
+      "examples": [
+        { "english": "Tokenize my_text as tokens", "talea": "tokenize my_text as tokens" },
+        { "english": "Break article into tokens and call it words", "talea": "tokenize article as words" }
+      ],
+      "patterns": [
+        "break {source} into tokens and call it {dest}",
+        "tokenize {source} as {dest}",
+        "split {source} into tokens and store as {dest}",
+        "convert {source} to tokens and name it {dest}",
+        "tokenize {source} and store in {dest}",
+        "break {source} into words and call it {dest}",
+        "get tokens from {source} as {dest}",
+        "extract tokens from {source} and call it {dest}",
+        "tokenise {source} as {dest}",
+        "word-tokenize {source} as {dest}",
+        "split {source} into individual words as {dest}",
+        "parse {source} into tokens as {dest}"
+      ]
+    },
+    {
+      "name": "sentiment",
+      "talea": "sentiment {source} as {dest}",
+      "description": "Perform sentiment analysis",
+      "examples": [
+        { "english": "Analyze the sentiment of my_text and call it my_sentiment", "talea": "sentiment my_text as my_sentiment" }
+      ],
+      "patterns": [
+        "analyze the sentiment of {source} and call it {dest}",
+        "sentiment of {source} as {dest}",
+        "check the mood of {source} and store in {dest}",
+        "find the sentiment in {source} and name it {dest}",
+        "what is the sentiment of {source} and call it {dest}",
+        "detect sentiment in {source} as {dest}",
+        "run sentiment analysis on {source} and store as {dest}",
+        "get sentiment of {source} as {dest}",
+        "analyse the sentiment of {source} as {dest}",
+        "determine the mood of {source} and call it {dest}",
+        "classify sentiment in {source} as {dest}",
+        "perform sentiment analysis on {source} and name it {dest}"
+      ]
+    },
+    {
+      "name": "count_words",
+      "talea": "count words in {source} as {dest}",
+      "description": "Count words in a text",
+      "examples": [
+        { "english": "Count the words in my_text and call it word_count", "talea": "count words in my_text as word_count" }
+      ],
+      "patterns": [
+        "count the words in {source} and call it {dest}",
+        "count words in {source} as {dest}",
+        "how many words are in {source} store as {dest}",
+        "get the word count of {source} and call it {dest}",
+        "count the number of words in {source} as {dest}",
+        "find the word count of {source} and store in {dest}",
+        "count tokens in {source} as {dest}",
+        "get word count of {source} as {dest}",
+        "how many words does {source} have store as {dest}",
+        "count all words in {source} and name it {dest}"
+      ]
+    },
+    {
+      "name": "clean",
+      "talea": "clean {source} as {dest}",
+      "description": "Remove punctuation and special characters",
+      "examples": [
+        { "english": "Clean my_text and call it cleaned", "talea": "clean my_text as cleaned" }
+      ],
+      "patterns": [
+        "clean {source} and call it {dest}",
+        "remove punctuation from {source} and store as {dest}",
+        "clean up {source} as {dest}",
+        "strip punctuation from {source} and call it {dest}",
+        "clean the text in {source} and name it {dest}",
+        "sanitize {source} as {dest}",
+        "remove special characters from {source} as {dest}",
+        "strip noise from {source} and call it {dest}",
+        "preprocess {source} and store as {dest}",
+        "normalize punctuation in {source} as {dest}"
+      ]
+    },
+    {
+      "name": "lowercase",
+      "talea": "lowercase {source} as {dest}",
+      "description": "Convert text to lowercase",
+      "examples": [
+        { "english": "Convert my_text to lowercase and call it lower_text", "talea": "lowercase my_text as lower_text" }
+      ],
+      "patterns": [
+        "convert {source} to lowercase and call it {dest}",
+        "lowercase {source} as {dest}",
+        "make {source} lowercase and store as {dest}",
+        "turn {source} into lowercase as {dest}",
+        "convert {source} to lower case as {dest}",
+        "change {source} to lowercase and call it {dest}",
+        "lowercase the text in {source} as {dest}",
+        "force {source} to lowercase as {dest}",
+        "make all text in {source} lowercase as {dest}",
+        "downcase {source} as {dest}"
+      ]
+    },
+    {
+      "name": "uppercase",
+      "talea": "uppercase {source} as {dest}",
+      "description": "Convert text to uppercase",
+      "examples": [
+        { "english": "Convert my_text to uppercase and call it upper_text", "talea": "uppercase my_text as upper_text" }
+      ],
+      "patterns": [
+        "convert {source} to uppercase and call it {dest}",
+        "uppercase {source} as {dest}",
+        "make {source} uppercase and store as {dest}",
+        "turn {source} into uppercase as {dest}",
+        "change {source} to uppercase and call it {dest}",
+        "force {source} to uppercase as {dest}",
+        "make all text in {source} uppercase as {dest}",
+        "upcase {source} as {dest}",
+        "capitalize all of {source} as {dest}"
+      ]
+    },
+    {
+      "name": "split_sentences",
+      "talea": "split sentences {source} as {dest}",
+      "description": "Split text into sentences",
+      "examples": [
+        { "english": "Split my_text into sentences and call it sentences", "talea": "split sentences my_text as sentences" }
+      ],
+      "patterns": [
+        "split {source} into sentences and call it {dest}",
+        "break {source} into sentences as {dest}",
+        "divide {source} into sentences and store as {dest}",
+        "get sentences from {source} as {dest}",
+        "extract sentences from {source} and call it {dest}",
+        "segment {source} into sentences as {dest}",
+        "sentence-split {source} as {dest}",
+        "chop {source} into sentences as {dest}",
+        "parse sentences from {source} as {dest}",
+        "separate {source} into sentences and name it {dest}"
+      ]
+    },
+    {
+      "name": "stem",
+      "talea": "stem {source} as {dest}",
+      "description": "Apply stemming to tokens",
+      "examples": [
+        { "english": "Stem my_tokens and call it stemmed", "talea": "stem my_tokens as stemmed" }
+      ],
+      "patterns": [
+        "stem {source} and call it {dest}",
+        "stem the words in {source} as {dest}",
+        "apply stemming to {source} and store as {dest}",
+        "get stems of words in {source} as {dest}",
+        "reduce {source} to stems as {dest}",
+        "run stemming on {source} as {dest}",
+        "stem all tokens in {source} and name it {dest}",
+        "apply porter stemmer to {source} as {dest}",
+        "compute stems of {source} as {dest}",
+        "find word stems in {source} as {dest}"
+      ]
+    },
+    {
+      "name": "lemmatize",
+      "talea": "lemmatize {source} as {dest}",
+      "description": "Lemmatize tokens using Python/spaCy",
+      "examples": [
+        { "english": "Lemmatize my_tokens and call it lemmas", "talea": "lemmatize my_tokens as lemmas" }
+      ],
+      "patterns": [
+        "lemmatize {source} and call it {dest}",
+        "get lemmas for {source} as {dest}",
+        "apply lemmatization to {source} and store as {dest}",
+        "lemmatise {source} as {dest}",
+        "find the base forms of {source} as {dest}",
+        "run lemmatization on {source} as {dest}",
+        "reduce {source} to lemmas as {dest}",
+        "compute lemmas of {source} as {dest}",
+        "get root forms from {source} as {dest}",
+        "lemmatize all tokens in {source} and name it {dest}"
+      ]
+    },
+    {
+      "name": "concordance",
+      "talea": "concordance {word} in {source} as {dest}",
+      "description": "Find all sentences containing a word",
+      "examples": [
+        { "english": "Find concordance of love in my_text as love_contexts", "talea": "concordance love in my_text as love_contexts" }
+      ],
+      "patterns": [
+        "find concordance of {word} in {source} as {dest}",
+        "get all sentences with {word} in {source} and call it {dest}",
+        "concordance of {word} in {source} as {dest}",
+        "show contexts for {word} in {source} as {dest}",
+        "find all occurrences of {word} in {source} as {dest}",
+        "get context around {word} in {source} as {dest}",
+        "show uses of {word} in {source} and name it {dest}",
+        "find sentences containing {word} in {source} as {dest}",
+        "search for {word} in {source} and call it {dest}",
+        "keyword in context for {word} in {source} as {dest}"
+      ]
+    },
+    {
+      "name": "wordcloud",
+      "talea": "wordcloud {source} as {dest}",
+      "description": "Build word frequency distribution",
+      "examples": [
+        { "english": "Create a word cloud from my_text and call it cloud", "talea": "wordcloud my_text as cloud" }
+      ],
+      "patterns": [
+        "create a word cloud from {source} and call it {dest}",
+        "word cloud of {source} as {dest}",
+        "generate word cloud from {source} and store as {dest}",
+        "build word cloud from {source} as {dest}",
+        "get word frequencies in {source} as {dest}",
+        "make a word cloud of {source} and name it {dest}",
+        "compute word frequencies of {source} as {dest}",
+        "frequency distribution of {source} as {dest}",
+        "word frequency analysis of {source} as {dest}",
+        "top words in {source} as {dest}"
+      ]
+    },
+    {
+      "name": "semantic_search",
+      "talea": "semantic search {query} in {source} as {dest}",
+      "description": "Search a document list by semantic similarity",
+      "examples": [
+        { "english": "Search my_sentences for love and call it results", "talea": "semantic search love in my_sentences as results" }
+      ],
+      "patterns": [
+        "search {source} for {query} and call it {dest}",
+        "find sentences matching {query} in {source} as {dest}",
+        "semantic search for {query} in {source} as {dest}",
+        "look for {query} in {source} and store as {dest}",
+        "find documents similar to {query} in {source} as {dest}",
+        "retrieve relevant items for {query} from {source} as {dest}",
+        "query {source} with {query} as {dest}",
+        "search semantically for {query} in {source} and name it {dest}",
+        "find best matches for {query} in {source} as {dest}",
+        "get documents related to {query} from {source} as {dest}"
+      ]
+    },
+    {
+      "name": "keyword_search",
+      "talea": "keyword search {query} in {source} as {dest}",
+      "description": "Find sentences containing a keyword",
+      "examples": [
+        { "english": "Find lines with \"love\" in my_text as love_lines", "talea": "keyword search \"love\" in my_text as love_lines" }
+      ],
+      "patterns": [
+        "find lines with {query} in {source} as {dest}",
+        "keyword search for {query} in {source} as {dest}",
+        "find all lines containing {query} in {source} as {dest}",
+        "search for keyword {query} in {source} as {dest}",
+        "get lines that contain {query} from {source} as {dest}",
+        "filter lines by keyword {query} in {source} as {dest}",
+        "extract lines with {query} from {source} as {dest}",
+        "find occurrences of {query} in {source} as {dest}",
+        "grep for {query} in {source} as {dest}",
+        "locate {query} in {source} as {dest}"
+      ]
+    },
+    {
+      "name": "translate",
+      "talea": "translate {source} to {language} as {dest}",
+      "description": "Translate text to another language",
+      "examples": [
+        { "english": "Translate my_text to French and call it translated", "talea": "translate my_text to French as translated" }
+      ],
+      "patterns": [
+        "translate {source} to {language} and call it {dest}",
+        "convert {source} to {language} and store as {dest}",
+        "translate the text in {source} into {language} as {dest}",
+        "translate {source} into {language} as {dest}",
+        "get a {language} translation of {source} as {dest}",
+        "render {source} in {language} as {dest}",
+        "make a {language} version of {source} as {dest}",
+        "localize {source} to {language} as {dest}",
+        "turn {source} into {language} and call it {dest}",
+        "produce a {language} translation of {source} and name it {dest}"
+      ]
+    },
+    {
+      "name": "summarize",
+      "talea": "summarize {source} as {dest}",
+      "description": "Summarize a text",
+      "examples": [
+        { "english": "Summarize my_text and call it summary", "talea": "summarize my_text as summary" }
+      ],
+      "patterns": [
+        "summarize {source} and call it {dest}",
+        "get a summary of {source} as {dest}",
+        "give me a summary of {source} and store as {dest}",
+        "create a summary of {source} as {dest}",
+        "condense {source} and call it {dest}",
+        "shorten {source} as {dest}",
+        "make a brief version of {source} as {dest}",
+        "write a summary of {source} and name it {dest}",
+        "abstract {source} as {dest}",
+        "create an abstract of {source} and call it {dest}"
+      ]
+    },
+    {
+      "name": "insight",
+      "talea": "insight {source} as {dest}",
+      "description": "Get AI-powered insights from data",
+      "examples": [
+        { "english": "Get insights from my_data and call it insights", "talea": "insight my_data as insights" }
+      ],
+      "patterns": [
+        "get insights from {source} and call it {dest}",
+        "analyze {source} for insights as {dest}",
+        "find insights in {source} and store as {dest}",
+        "provide insights on {source} as {dest}",
+        "derive insights from {source} as {dest}",
+        "generate insights from {source} and call it {dest}",
+        "interpret {source} and name the result {dest}",
+        "extract insights from {source} as {dest}",
+        "analyze and explain {source} as {dest}",
+        "tell me what {source} means and store as {dest}"
+      ]
+    },
+    {
+      "name": "regress",
+      "talea": "regress {target} on {features} in {source} as {dest}",
+      "description": "Run linear regression",
+      "examples": [
+        { "english": "Regress price using area in data and call it model", "talea": "regress price on area in data as model" }
+      ],
+      "patterns": [
+        "regress {target} using {features} in {source} and call it {dest}",
+        "run regression of {target} on {features} in {source} as {dest}",
+        "predict {target} from {features} using data in {source} as {dest}",
+        "fit a regression model for {target} with {features} in {source} as {dest}",
+        "build a regression model predicting {target} from {features} in {source} as {dest}",
+        "linear regression of {target} on {features} in {source} as {dest}",
+        "model {target} as a function of {features} in {source} as {dest}",
+        "regress {target} against {features} from {source} as {dest}",
+        "do regression analysis of {target} using {features} from {source} as {dest}",
+        "estimate {target} from {features} in {source} and call it {dest}"
+      ]
+    },
+    {
+      "name": "mean",
+      "talea": "mean {col} in {source} as {dest}",
+      "description": "Calculate the mean of a column",
+      "examples": [
+        { "english": "Find the mean of age in data and call it mean_age", "talea": "mean age in data as mean_age" }
+      ],
+      "patterns": [
+        "find the mean of {col} in {source} and call it {dest}",
+        "calculate the average of {col} in {source} as {dest}",
+        "compute the mean of {col} in {source} and store as {dest}",
+        "get the mean of {col} in {source} as {dest}",
+        "what is the mean of {col} in {source} store as {dest}",
+        "find average of {col} in {source} as {dest}",
+        "compute average {col} from {source} as {dest}",
+        "calculate mean of {col} from {source} as {dest}",
+        "average of {col} in {source} stored as {dest}",
+        "arithmetic mean of {col} in {source} as {dest}"
+      ]
+    },
+    {
+      "name": "median",
+      "talea": "median {col} in {source} as {dest}",
+      "description": "Calculate the median of a column",
+      "examples": [
+        { "english": "Find the median of age in data and call it median_age", "talea": "median age in data as median_age" }
+      ],
+      "patterns": [
+        "find the median of {col} in {source} and call it {dest}",
+        "calculate the median of {col} in {source} as {dest}",
+        "compute the median of {col} in {source} and store as {dest}",
+        "get the median of {col} in {source} as {dest}",
+        "median of {col} in {source} as {dest}",
+        "find middle value of {col} in {source} as {dest}",
+        "50th percentile of {col} in {source} as {dest}",
+        "compute median {col} from {source} as {dest}",
+        "median value of {col} in {source} stored as {dest}",
+        "get median of column {col} in {source} as {dest}"
+      ]
+    },
+    {
+      "name": "mode",
+      "talea": "mode {col} in {source} as {dest}",
+      "description": "Find the mode of a column",
+      "examples": [
+        { "english": "Find the mode of scores in data and call it most_common", "talea": "mode scores in data as most_common" }
+      ],
+      "patterns": [
+        "find the mode of {col} in {source} and call it {dest}",
+        "calculate the mode of {col} in {source} as {dest}",
+        "what is the most frequent value of {col} in {source} as {dest}",
+        "get the mode of {col} in {source} as {dest}",
+        "most common value of {col} in {source} as {dest}",
+        "find most frequent {col} in {source} as {dest}",
+        "mode of {col} in {source} stored as {dest}",
+        "compute mode {col} from {source} as {dest}",
+        "most popular value of {col} in {source} as {dest}",
+        "get mode of column {col} in {source} as {dest}"
+      ]
+    },
+    {
+      "name": "ttest",
+      "talea": "ttest {col} between {g1} and {g2} as {dest}",
+      "description": "Run an independent t-test",
+      "examples": [
+        { "english": "Run a t-test on scores between group1 and group2 and call it result", "talea": "ttest scores between group1 and group2 as result" }
+      ],
+      "patterns": [
+        "run a t-test on {col} between {g1} and {g2} and call it {dest}",
+        "t-test {col} between {g1} and {g2} as {dest}",
+        "compare {g1} and {g2} using a t-test on {col} as {dest}",
+        "do a t-test comparing {g1} and {g2} on {col} as {dest}",
+        "perform a t-test on {col} between {g1} and {g2} store as {dest}",
+        "statistical t-test on {col} for {g1} vs {g2} as {dest}",
+        "independent samples t-test on {col} for {g1} and {g2} as {dest}",
+        "is there a significant difference in {col} between {g1} and {g2} store as {dest}",
+        "t test {g1} and {g2} on {col} as {dest}",
+        "test difference between {g1} and {g2} in {col} as {dest}"
+      ]
+    },
+    {
+      "name": "anova",
+      "talea": "anova {col} between {g1} and {g2} as {dest}",
+      "description": "Run a one-way ANOVA test",
+      "examples": [
+        { "english": "Run an ANOVA on scores between group1 and group2 and call it anova_result", "talea": "anova scores between group1 and group2 as anova_result" }
+      ],
+      "patterns": [
+        "run an anova on {col} between {g1} and {g2} and call it {dest}",
+        "anova on {col} between {g1} and {g2} as {dest}",
+        "perform anova on {col} between {g1} and {g2} store as {dest}",
+        "one-way anova for {col} comparing {g1} and {g2} as {dest}",
+        "test variance in {col} between {g1} and {g2} as {dest}",
+        "f-test {col} for {g1} and {g2} as {dest}",
+        "analysis of variance on {col} for {g1} vs {g2} as {dest}",
+        "anova comparing {g1} vs {g2} on {col} as {dest}",
+        "do an anova test of {col} for {g1} and {g2} as {dest}",
+        "run one way anova of {col} on {g1} and {g2} as {dest}"
+      ]
+    },
+    {
+      "name": "shapiro",
+      "talea": "shapiro {col} in {source} as {dest}",
+      "description": "Run the Shapiro-Wilk normality test",
+      "examples": [
+        { "english": "Test normality of age in data and call it shapiro_result", "talea": "shapiro age in data as shapiro_result" }
+      ],
+      "patterns": [
+        "run a shapiro test on {col} in {source} as {dest}",
+        "test normality of {col} in {source} as {dest}",
+        "shapiro-wilk test for {col} in {source} as {dest}",
+        "is {col} in {source} normally distributed store as {dest}",
+        "normality test for {col} in {source} as {dest}",
+        "check if {col} in {source} is normal as {dest}",
+        "shapiro test {col} from {source} as {dest}",
+        "run normality analysis on {col} in {source} as {dest}",
+        "perform shapiro-wilk on {col} in {source} as {dest}",
+        "assess normality of {col} in {source} as {dest}"
+      ]
+    },
+    {
+      "name": "openai",
+      "talea": "openai \"{prompt}\" as {dest}",
+      "description": "Query OpenAI GPT",
+      "examples": [
+        { "english": "Ask OpenAI to summarize my_text and call it summary", "talea": "openai \"Summarize the text\" as summary" }
+      ],
+      "patterns": [
+        "ask openai {prompt} and call it {dest}",
+        "use openai to {prompt} and store as {dest}",
+        "generate {prompt} with openai and call it {dest}",
+        "query openai with {prompt} and store in {dest}",
+        "ask gpt {prompt} and call it {dest}",
+        "use gpt to {prompt} and store as {dest}",
+        "get openai to {prompt} and name it {dest}",
+        "prompt openai with {prompt} as {dest}",
+        "let openai handle {prompt} and store as {dest}",
+        "have openai {prompt} and call the result {dest}",
+        "run {prompt} through openai as {dest}",
+        "ask chatgpt {prompt} and call it {dest}"
+      ]
+    },
+    {
+      "name": "use_python",
+      "talea": "use python",
+      "description": "Activate the Python backend",
+      "examples": [
+        { "english": "Use python", "talea": "use python" }
+      ],
+      "patterns": [
+        "use python",
+        "activate python",
+        "enable python backend",
+        "i need python",
+        "turn on python",
+        "switch to python",
+        "enable python",
+        "start python",
+        "load python",
+        "initialize python backend"
+      ]
+    },
+    {
+      "name": "use_r",
+      "talea": "use r",
+      "description": "Activate the R backend",
+      "examples": [
+        { "english": "Use r", "talea": "use r" }
+      ],
+      "patterns": [
+        "use r",
+        "activate r",
+        "enable r backend",
+        "i need r",
+        "turn on r",
+        "switch to r",
+        "enable r",
+        "start r",
+        "load r",
+        "initialize r backend"
+      ]
+    },
+    {
+      "name": "for_each",
+      "talea": "for each {item} in {list}",
+      "description": "Iterate over a list",
+      "examples": [
+        { "english": "For each word in words do print word", "talea": "for each word in words\n  print word\nend" }
+      ],
+      "patterns": [
+        "for each {item} in {list} do",
+        "go through each {item} in {list} and",
+        "loop over {item} in {list}",
+        "iterate over each {item} in {list}",
+        "for every {item} in {list}",
+        "process each {item} in {list}",
+        "for each item {item} in {list}",
+        "cycle through {item} in {list}",
+        "visit each {item} in {list}",
+        "walk through each {item} in {list}"
+      ]
+    },
+    {
+      "name": "set_env",
+      "talea": "set env {name} \"{value}\"",
+      "description": "Set an environment variable",
+      "examples": [
+        { "english": "Set the environment variable OPENAI_API_KEY to my_key", "talea": "set env OPENAI_API_KEY \"my_key\"" }
+      ],
+      "patterns": [
+        "set the environment variable {name} to {value}",
+        "set env {name} to {value}",
+        "define environment variable {name} as {value}",
+        "set {name} environment variable to {value}",
+        "configure {name} to {value}",
+        "update environment variable {name} with {value}",
+        "export {name} as {value}",
+        "set api key {name} to {value}",
+        "set the env var {name} to {value}",
+        "put {value} in environment variable {name}"
+      ]
+    }
+  ]
+}

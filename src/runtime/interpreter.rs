@@ -1,6 +1,9 @@
+use crossbeam_channel;
+use rayon::prelude::*;
 use shellexpand;
 use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::sync::Arc;
 
 // FFI Imports
 use pyo3::prelude::*;
@@ -22,6 +25,11 @@ pub struct Interpreter {
     environment: Environment,
     active_backends: HashSet<Backend>,
     libraries: HashMap<String, Library>,
+    functions: HashMap<String, (Vec<String>, Vec<crate::ast::Statement>)>,
+    memory_tracker: crate::memory::MemoryTracker,
+    channels: HashMap<String, (crossbeam_channel::Sender<TaleaValue>, crossbeam_channel::Receiver<TaleaValue>)>,
+    #[cfg(feature = "db")]
+    db_connections: crate::db::ConnectionRegistry,
 }
 
 #[allow(dead_code)]
@@ -30,12 +38,39 @@ enum Library {
     R(String),
 }
 
+/// Quick helper to serialize a TaleaValue to JSON for return-value encoding.
+fn talea_value_to_json_inner(val: &TaleaValue) -> serde_json::Value {
+    match val {
+        TaleaValue::String(s) => serde_json::json!({"type":"String","value":s}),
+        TaleaValue::Number(n) => serde_json::json!({"type":"Number","value":n}),
+        TaleaValue::Float(f) => serde_json::json!({"type":"Float","value":f}),
+        TaleaValue::Bool(b) => serde_json::json!({"type":"Bool","value":b}),
+        TaleaValue::Null => serde_json::json!({"type":"Null"}),
+        _ => serde_json::json!({"type":"Null"}),
+    }
+}
+
+fn json_to_talea_value(j: &serde_json::Value) -> TaleaValue {
+    match j.get("type").and_then(|t| t.as_str()) {
+        Some("String") => TaleaValue::String(j["value"].as_str().unwrap_or("").to_string()),
+        Some("Number") => TaleaValue::Number(j["value"].as_i64().unwrap_or(0)),
+        Some("Float") => TaleaValue::Float(j["value"].as_f64().unwrap_or(0.0)),
+        Some("Bool") => TaleaValue::Bool(j["value"].as_bool().unwrap_or(false)),
+        _ => TaleaValue::Null,
+    }
+}
+
 impl Interpreter {
     pub fn new() -> Self {
         Interpreter {
             environment: Environment::new(),
             active_backends: HashSet::new(),
             libraries: HashMap::new(),
+            functions: HashMap::new(),
+            memory_tracker: crate::memory::MemoryTracker::new(),
+            channels: HashMap::new(),
+            #[cfg(feature = "db")]
+            db_connections: crate::db::ConnectionRegistry::new(),
         }
     }
 
@@ -72,9 +107,10 @@ impl Interpreter {
                 .split_whitespace()
                 .map(|w| w.to_lowercase())
                 .collect::<Vec<_>>(),
-            TaleaValue::List(l) => {
+            TaleaValue::List(ref l) => {
+                let l_guard = l.read().unwrap();
                 let mut out = Vec::new();
-                for v in l {
+                for v in l_guard.iter() {
                     if let TaleaValue::String(s) = v {
                         out.push(s.to_lowercase());
                     }
@@ -93,7 +129,7 @@ impl Interpreter {
             .into_iter()
             .map(|(w, c)| TaleaValue::Tuple(vec![TaleaValue::String(w), TaleaValue::Number(c)]))
             .collect();
-        self.environment.define(dest_name, TaleaValue::List(result));
+        self.environment.define(dest_name, TaleaValue::list(result));
         Ok(())
     }
 
@@ -109,9 +145,10 @@ impl Interpreter {
                 .split_whitespace()
                 .map(|w| w.to_lowercase())
                 .collect::<Vec<_>>(),
-            TaleaValue::List(l) => {
+            TaleaValue::List(ref l) => {
+                let l_guard = l.read().unwrap();
                 let mut out = Vec::new();
-                for v in l {
+                for v in l_guard.iter() {
                     if let TaleaValue::String(s) = v {
                         out.push(s.to_lowercase());
                     }
@@ -143,7 +180,7 @@ impl Interpreter {
                 ])
             })
             .collect();
-        self.environment.define(dest_name, TaleaValue::List(result));
+        self.environment.define(dest_name, TaleaValue::list(result));
         Ok(())
     }
 
@@ -179,11 +216,12 @@ impl Interpreter {
             .collect();
         let source_val = self.evaluate_expression(source)?;
         let docs = match source_val {
-            TaleaValue::List(l) => {
+            TaleaValue::List(ref list) => {
+                let list_guard = list.read().unwrap();
                 let mut docs_vec = Vec::new();
-                for item in l {
+                for item in list_guard.iter() {
                     if let TaleaValue::String(s) = item {
-                        docs_vec.push(s);
+                        docs_vec.push(s.clone());
                     } else {
                         return Err("Semantic search expects a list of strings".to_string());
                     }
@@ -207,7 +245,7 @@ impl Interpreter {
             .map(|(i, s)| TaleaValue::Tuple(vec![TaleaValue::Number(i), TaleaValue::Number(s)]))
             .collect();
         let dest_name = self.get_identifier_name(destination)?;
-        self.environment.define(dest_name, TaleaValue::List(list));
+        self.environment.define(dest_name, TaleaValue::list(list));
         Ok(())
     }
 
@@ -227,7 +265,7 @@ impl Interpreter {
             .map(TaleaValue::String)
             .collect();
         self.environment
-            .define(dest_name, TaleaValue::List(sentences));
+            .define(dest_name, TaleaValue::list(sentences));
         Ok(())
     }
 
@@ -641,6 +679,61 @@ impl Interpreter {
             Statement::ForEach { item, list, body } => {
                 self.execute_foreach_statement(item, list, body)
             }
+            Statement::While { condition, body } => {
+                self.execute_while_statement(condition, body)
+            }
+            Statement::Break => Err("__break__".to_string()),
+            Statement::Continue => Err("__continue__".to_string()),
+            Statement::Return { value } => self.execute_return_statement(value.as_ref()),
+            Statement::TryCatch { try_body, error_var, catch_body } => {
+                self.execute_try_catch_statement(try_body, error_var, catch_body)
+            }
+            Statement::FunctionDef { name, params, body } => {
+                self.execute_function_def_by_name(name, params, body)
+            }
+            Statement::FunctionCall { name, args, destination } => {
+                self.execute_function_call_by_name(name, args, destination.as_ref())
+            }
+            Statement::ParallelMap { item, list, body, destination } => {
+                self.execute_parallel_map_by_name(item, list, body, destination)
+            }
+            Statement::ParallelFor { item, list, body, threads: _ } => {
+                self.execute_parallel_for_by_name(item, list, body)
+            }
+            Statement::CreateChannel { name, capacity } => {
+                self.execute_create_channel_by_name(name, capacity.as_ref())
+            }
+            Statement::SendToChannel { channel, value } => {
+                self.execute_send_to_channel(channel, value)
+            }
+            Statement::RecvFromChannel { channel, destination } => {
+                self.execute_recv_from_channel(channel, destination)
+            }
+            Statement::Spawn { body, join_as } => {
+                self.execute_spawn(body, join_as.as_deref())
+            }
+            Statement::Free { name } => self.execute_free(name),
+            Statement::SetMemoryLimit { megabytes } => {
+                self.execute_set_memory_limit(megabytes)
+            }
+            Statement::PrintMemoryUsage => {
+                println!("{}", self.memory_tracker.usage_summary());
+                Ok(())
+            }
+            Statement::MemoryScope { body } => self.execute_memory_scope(body),
+            Statement::DbConnect { alias, db_type, url } => {
+                self.execute_db_connect(alias.as_str(), db_type, url)
+            }
+            Statement::DbQuery { connection, sql, params, destination } => {
+                self.execute_db_query(connection, sql, params, destination)
+            }
+            Statement::DbExecute { connection, sql, params } => {
+                self.execute_db_execute(connection, sql, params)
+            }
+            Statement::DbInsert { connection, table, data } => {
+                self.execute_db_insert(connection, table, data)
+            }
+            Statement::DbClose { connection } => self.execute_db_close(connection),
         }
     }
 
@@ -693,23 +786,26 @@ impl Interpreter {
         let dest_name = self.get_identifier_name(destination)?;
         let value = self.evaluate_expression(source)?;
         match value {
-            TaleaValue::List(source_list) => {
+            TaleaValue::List(ref source_list) => {
                 if !self.active_backends.contains(&Backend::R) {
                     return Err(
                         "The 'summarize' command requires the R backend. Run 'use r' first."
                             .to_string(),
                     );
                 }
-                let _numbers_as_strings: Vec<String> = source_list
-                    .iter()
-                    .filter_map(|val| {
-                        if let TaleaValue::Number(n) = val {
-                            Some(n.to_string())
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
+                let _numbers_as_strings: Vec<String> = {
+                    let guard = source_list.read().unwrap();
+                    guard
+                        .iter()
+                        .filter_map(|val| {
+                            if let TaleaValue::Number(n) = val {
+                                Some(n.to_string())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect()
+                };
                 println!("[Interpreter: Calling R to summarize data...]");
 
                 #[cfg(feature = "r")]
@@ -943,7 +1039,7 @@ def run_regression(csv, target, features, chart_path):
                 }
             };
             self.environment
-                .define(dest_name, TaleaValue::List(result_list));
+                .define(dest_name, TaleaValue::list(result_list));
             Ok(())
         })
         .map_err(|e| format!("Python Error: {}", e))?;
@@ -1145,7 +1241,7 @@ def run_regression(csv, target, features, chart_path):
                     Ok(TaleaValue::String(lemma))
                 })
                 .collect::<PyResult<Vec<TaleaValue>>>()?;
-            self.environment.define(dest_name, TaleaValue::List(lemmas));
+            self.environment.define(dest_name, TaleaValue::list(lemmas));
             Ok(())
         })
         .map_err(|e| format!("Python Error: {}", e))?;
@@ -1159,8 +1255,9 @@ def run_regression(csv, target, features, chart_path):
         condition: &FilterCondition,
         destination: &Expression,
     ) -> std::result::Result<(), String> {
-        let source_list = if let TaleaValue::List(l) = self.evaluate_expression(source)? {
-            l
+        let source_val = self.evaluate_expression(source)?;
+        let source_list = if let TaleaValue::List(ref l) = source_val {
+            l.read().unwrap().clone()
         } else {
             return Err("Filter can only be applied to a list.".to_string());
         };
@@ -1192,7 +1289,7 @@ def run_regression(csv, target, features, chart_path):
             filtered_list.len()
         );
         self.environment
-            .define(dest_name, TaleaValue::List(filtered_list));
+            .define(dest_name, TaleaValue::list(filtered_list));
         Ok(())
     }
 
@@ -1680,8 +1777,12 @@ result = _talea_outer(obj, method_path, args, kwargs)
         value: &Expression,
     ) -> std::result::Result<(), String> {
         let var_name = self.get_identifier_name(name)?;
-        let value = self.evaluate_expression(value)?;
-        self.environment.define(var_name, value);
+        let val = self.evaluate_expression(value)?;
+        // Track memory usage
+        if let Err(e) = self.memory_tracker.track_define(&var_name, &val) {
+            return Err(e);
+        }
+        self.environment.define(var_name, val);
         Ok(())
     }
 
@@ -1792,7 +1893,7 @@ result = _talea_outer(obj, method_path, args, kwargs)
                 "[Interpreter: Tokenized text into {} tokens.]",
                 tokens.len()
             );
-            self.environment.define(dest_name, TaleaValue::List(tokens));
+            self.environment.define(dest_name, TaleaValue::list(tokens));
             Ok(())
         } else {
             Err("The 'tokenize' command can only be used on a String value.".to_string())
@@ -1806,11 +1907,12 @@ result = _talea_outer(obj, method_path, args, kwargs)
     ) -> std::result::Result<(), String> {
         let tokens_val = self.evaluate_expression(source)?;
         let dest_name = self.get_identifier_name(destination)?;
-        if let TaleaValue::List(list) = tokens_val {
+        if let TaleaValue::List(ref list) = tokens_val {
+            let list_guard = list.read().unwrap();
             let mut counts: HashMap<String, i64> = HashMap::new();
-            for item in list {
+            for item in list_guard.iter() {
                 if let TaleaValue::String(s) = item {
-                    *counts.entry(s).or_insert(0) += 1;
+                    *counts.entry(s.clone()).or_insert(0) += 1;
                 } else {
                     return Err("doc2bow expects a list of strings".to_string());
                 }
@@ -1826,7 +1928,7 @@ result = _talea_outer(obj, method_path, args, kwargs)
                 "[Interpreter: Created bag-of-words with {} entries.]",
                 bow.len()
             );
-            self.environment.define(dest_name, TaleaValue::List(bow));
+            self.environment.define(dest_name, TaleaValue::list(bow));
             Ok(())
         } else {
             Err("doc2bow expects a list of tokens".to_string())
@@ -1859,7 +1961,7 @@ result = _talea_outer(obj, method_path, args, kwargs)
                     sentences.len()
                 );
                 self.environment
-                    .define(dest_name, TaleaValue::List(sentences));
+                    .define(dest_name, TaleaValue::list(sentences));
                 Ok(())
             }
             Token::Lines => {
@@ -1868,7 +1970,7 @@ result = _talea_outer(obj, method_path, args, kwargs)
                     .map(|l| TaleaValue::String(l.to_string()))
                     .collect();
                 println!("[Interpreter: Split text into {} lines.]", lines.len());
-                self.environment.define(dest_name, TaleaValue::List(lines));
+                self.environment.define(dest_name, TaleaValue::list(lines));
                 Ok(())
             }
             Token::Words | Token::Tokens => {
@@ -1877,7 +1979,7 @@ result = _talea_outer(obj, method_path, args, kwargs)
                     .map(|w| TaleaValue::String(w.to_string()))
                     .collect();
                 println!("[Interpreter: Split text into {} words.]", words.len());
-                self.environment.define(dest_name, TaleaValue::List(words));
+                self.environment.define(dest_name, TaleaValue::list(words));
                 Ok(())
             }
             Token::Characters => {
@@ -1886,7 +1988,7 @@ result = _talea_outer(obj, method_path, args, kwargs)
                     .map(|c| TaleaValue::String(c.to_string()))
                     .collect();
                 println!("[Interpreter: Split text into {} characters.]", chars.len());
-                self.environment.define(dest_name, TaleaValue::List(chars));
+                self.environment.define(dest_name, TaleaValue::list(chars));
                 Ok(())
             }
             _ => Err("Unsupported unit for split".to_string()),
@@ -1903,11 +2005,12 @@ result = _talea_outer(obj, method_path, args, kwargs)
         let list_val = self.evaluate_expression(source)?;
         let sep = self.get_string_value(separator)?;
         let dest_name = self.get_identifier_name(destination)?;
-        if let TaleaValue::List(items) = list_val {
-            let strings: Vec<String> = items
-                .into_iter()
+        if let TaleaValue::List(ref items) = list_val {
+            let items_guard = items.read().unwrap();
+            let strings: Vec<String> = items_guard
+                .iter()
                 .filter_map(|v| match v {
-                    TaleaValue::String(s) => Some(s),
+                    TaleaValue::String(s) => Some(s.clone()),
                     TaleaValue::Number(n) => Some(n.to_string()),
                     _ => None,
                 })
@@ -1940,16 +2043,17 @@ result = _talea_outer(obj, method_path, args, kwargs)
                     .define(dest_name, TaleaValue::String(result));
                 Ok(())
             }
-            TaleaValue::List(list) => {
-                let replaced: Vec<TaleaValue> = list
-                    .into_iter()
+            TaleaValue::List(ref list) => {
+                let list_guard = list.read().unwrap();
+                let replaced: Vec<TaleaValue> = list_guard
+                    .iter()
                     .map(|item| match item {
                         TaleaValue::String(s) => TaleaValue::String(s.replace(&pat, &repl)),
-                        _ => item,
+                        _ => item.clone(),
                     })
                     .collect();
                 self.environment
-                    .define(dest_name, TaleaValue::List(replaced));
+                    .define(dest_name, TaleaValue::list(replaced));
                 Ok(())
             }
             _ => Err("The 'replace' command requires a string or list.".to_string()),
@@ -1970,16 +2074,17 @@ result = _talea_outer(obj, method_path, args, kwargs)
                     .define(dest_name, TaleaValue::String(cleaned));
                 Ok(())
             }
-            TaleaValue::List(list) => {
-                let cleaned: Vec<TaleaValue> = list
-                    .into_iter()
+            TaleaValue::List(ref list) => {
+                let list_guard = list.read().unwrap();
+                let cleaned: Vec<TaleaValue> = list_guard
+                    .iter()
                     .map(|item| match item {
-                        TaleaValue::String(s) => TaleaValue::String(Self::clean_text(&s)),
-                        _ => item,
+                        TaleaValue::String(s) => TaleaValue::String(Self::clean_text(s)),
+                        _ => item.clone(),
                     })
                     .collect();
                 self.environment
-                    .define(dest_name, TaleaValue::List(cleaned));
+                    .define(dest_name, TaleaValue::list(cleaned));
                 Ok(())
             }
             _ => Err("The 'clean' command requires a string or list.".to_string()),
@@ -1999,15 +2104,16 @@ result = _talea_outer(obj, method_path, args, kwargs)
                     .define(dest_name, TaleaValue::String(s.to_lowercase()));
                 Ok(())
             }
-            TaleaValue::List(list) => {
-                let lower: Vec<TaleaValue> = list
-                    .into_iter()
+            TaleaValue::List(ref list) => {
+                let list_guard = list.read().unwrap();
+                let lower: Vec<TaleaValue> = list_guard
+                    .iter()
                     .map(|item| match item {
                         TaleaValue::String(s) => TaleaValue::String(s.to_lowercase()),
-                        _ => item,
+                        _ => item.clone(),
                     })
                     .collect();
-                self.environment.define(dest_name, TaleaValue::List(lower));
+                self.environment.define(dest_name, TaleaValue::list(lower));
                 Ok(())
             }
             _ => Err("The 'lowercase' command requires a string or list.".to_string()),
@@ -2027,15 +2133,16 @@ result = _talea_outer(obj, method_path, args, kwargs)
                     .define(dest_name, TaleaValue::String(s.to_uppercase()));
                 Ok(())
             }
-            TaleaValue::List(list) => {
-                let upper: Vec<TaleaValue> = list
-                    .into_iter()
+            TaleaValue::List(ref list) => {
+                let list_guard = list.read().unwrap();
+                let upper: Vec<TaleaValue> = list_guard
+                    .iter()
                     .map(|item| match item {
                         TaleaValue::String(s) => TaleaValue::String(s.to_uppercase()),
-                        _ => item,
+                        _ => item.clone(),
                     })
                     .collect();
-                self.environment.define(dest_name, TaleaValue::List(upper));
+                self.environment.define(dest_name, TaleaValue::list(upper));
                 Ok(())
             }
             _ => Err("The 'uppercase' command requires a string or list.".to_string()),
@@ -2055,18 +2162,19 @@ result = _talea_outer(obj, method_path, args, kwargs)
                     .split_whitespace()
                     .map(|w| TaleaValue::String(Self::stem_word(w)))
                     .collect();
-                self.environment.define(dest_name, TaleaValue::List(stems));
+                self.environment.define(dest_name, TaleaValue::list(stems));
                 Ok(())
             }
-            TaleaValue::List(list) => {
-                let stems: Vec<TaleaValue> = list
-                    .into_iter()
+            TaleaValue::List(ref list) => {
+                let list_guard = list.read().unwrap();
+                let stems: Vec<TaleaValue> = list_guard
+                    .iter()
                     .map(|item| match item {
-                        TaleaValue::String(s) => TaleaValue::String(Self::stem_word(&s)),
-                        _ => item,
+                        TaleaValue::String(s) => TaleaValue::String(Self::stem_word(s)),
+                        _ => item.clone(),
                     })
                     .collect();
-                self.environment.define(dest_name, TaleaValue::List(stems));
+                self.environment.define(dest_name, TaleaValue::list(stems));
                 Ok(())
             }
             _ => Err("The 'stem' command requires a string or list.".to_string()),
@@ -2104,9 +2212,9 @@ result = _talea_outer(obj, method_path, args, kwargs)
             // CASE 1: Count items in a list (e.g., "count words in word_list")
             (
                 Token::Words | Token::Tokens | Token::Lines | Token::Sentences | Token::Paragraphs,
-                TaleaValue::List(l),
+                TaleaValue::List(ref l),
             ) => {
-                let count = l.len() as i64;
+                let count = l.read().unwrap().len() as i64;
                 println!("[Interpreter: Counted {} items]", count);
                 self.environment
                     .define(dest_name, TaleaValue::Number(count));
@@ -2147,8 +2255,9 @@ result = _talea_outer(obj, method_path, args, kwargs)
                     .define(dest_name, TaleaValue::Number(count));
             }
             // CASE 4: Get character count for *each item* in a list
-            (Token::Characters, TaleaValue::List(l)) => {
-                let lengths: Vec<TaleaValue> = l
+            (Token::Characters, TaleaValue::List(ref l)) => {
+                let l_guard = l.read().unwrap();
+                let lengths: Vec<TaleaValue> = l_guard
                     .iter()
                     .map(|item| {
                         let len = if let TaleaValue::String(s) = item {
@@ -2164,7 +2273,7 @@ result = _talea_outer(obj, method_path, args, kwargs)
                     lengths.len()
                 );
                 self.environment
-                    .define(dest_name, TaleaValue::List(lengths));
+                    .define(dest_name, TaleaValue::list(lengths));
             }
             _ => {
                 return Err(format!(
@@ -2193,7 +2302,7 @@ result = _talea_outer(obj, method_path, args, kwargs)
             .collect();
         let count = sentences.len();
         self.environment
-            .define(dest_name, TaleaValue::List(sentences));
+            .define(dest_name, TaleaValue::list(sentences));
         println!("[Interpreter: Found {} occurrences]", count);
         Ok(())
     }
@@ -2266,15 +2375,17 @@ result = _talea_outer(obj, method_path, args, kwargs)
                 for item in items {
                     vals.push(self.evaluate_expression(item)?);
                 }
-                Ok(TaleaValue::List(vals))
+                Ok(TaleaValue::list(vals))
             }
             Expression::Index(expr, idx) => {
                 let list_val = self.evaluate_expression(expr)?;
                 let idx_val = self.evaluate_expression(idx)?;
                 match (list_val, idx_val) {
-                    (TaleaValue::List(l), TaleaValue::Number(n)) => {
+                    (TaleaValue::List(ref l), TaleaValue::Number(n)) => {
                         let i = n as usize;
-                        l.get(i)
+                        let guard = l.read().unwrap();
+                        guard
+                            .get(i)
                             .cloned()
                             .ok_or_else(|| "Index out of bounds".to_string())
                     }
@@ -2380,11 +2491,12 @@ result = _talea_outer(obj, method_path, args, kwargs)
         expression: &Expression,
     ) -> std::result::Result<Vec<f64>, String> {
         match self.evaluate_expression(expression)? {
-            TaleaValue::List(list) => {
+            TaleaValue::List(ref list) => {
+                let guard = list.read().unwrap();
                 let mut out = Vec::new();
-                for item in list {
+                for item in guard.iter() {
                     match item {
-                        TaleaValue::Number(n) => out.push(n as f64),
+                        TaleaValue::Number(n) => out.push(*n as f64),
                         TaleaValue::String(s) => out.push(
                             s.parse::<f64>()
                                 .map_err(|_| "Expected numeric value".to_string())?,
@@ -2405,26 +2517,31 @@ result = _talea_outer(obj, method_path, args, kwargs)
     ) -> std::result::Result<Vec<f64>, String> {
         let col_name = self.get_identifier_name(column)?;
         let data_val = self.evaluate_expression(data)?;
-        if let TaleaValue::List(entries) = data_val {
-            for entry in entries {
+        if let TaleaValue::List(ref entries) = data_val {
+            let entries_guard = entries.read().unwrap();
+            for entry in entries_guard.iter() {
                 match entry {
-                    TaleaValue::List(pair) if pair.len() == 2 => {
-                        if let TaleaValue::String(name) = &pair[0] {
-                            if name == &col_name {
-                                if let TaleaValue::List(vals) = &pair[1] {
-                                    let mut nums = Vec::new();
-                                    for v in vals {
-                                        match v {
-                                            TaleaValue::Number(n) => nums.push(*n as f64),
-                                            TaleaValue::Float(f) => nums.push(*f),
-                                            _ => {
-                                                return Err(
-                                                    "Column values must be numbers".to_string()
-                                                );
+                    TaleaValue::List(ref pair) => {
+                        let pair_guard = pair.read().unwrap();
+                        if pair_guard.len() == 2 {
+                            if let TaleaValue::String(name) = &pair_guard[0] {
+                                if name == &col_name {
+                                    if let TaleaValue::List(ref vals) = pair_guard[1] {
+                                        let vals_guard = vals.read().unwrap();
+                                        let mut nums = Vec::new();
+                                        for v in vals_guard.iter() {
+                                            match v {
+                                                TaleaValue::Number(n) => nums.push(*n as f64),
+                                                TaleaValue::Float(f) => nums.push(*f),
+                                                _ => {
+                                                    return Err(
+                                                        "Column values must be numbers".to_string()
+                                                    );
+                                                }
                                             }
                                         }
+                                        return Ok(nums);
                                     }
-                                    return Ok(nums);
                                 }
                             }
                         }
@@ -2432,9 +2549,10 @@ result = _talea_outer(obj, method_path, args, kwargs)
                     TaleaValue::Tuple(pair) if pair.len() == 2 => {
                         if let TaleaValue::String(name) = &pair[0] {
                             if name == &col_name {
-                                if let TaleaValue::List(vals) = &pair[1] {
+                                if let TaleaValue::List(ref vals) = pair[1] {
+                                    let vals_guard = vals.read().unwrap();
                                     let mut nums = Vec::new();
-                                    for v in vals {
+                                    for v in vals_guard.iter() {
                                         match v {
                                             TaleaValue::Number(n) => nums.push(*n as f64),
                                             TaleaValue::Float(f) => nums.push(*f),
@@ -2464,19 +2582,7 @@ result = _talea_outer(obj, method_path, args, kwargs)
         else_body: &Vec<Statement>,
     ) -> std::result::Result<(), String> {
         let cond_val = self.evaluate_expression(condition)?;
-        let truthy = match cond_val {
-            TaleaValue::Number(n) => n != 0,
-            TaleaValue::Float(f) => f != 0.0,
-            TaleaValue::String(ref s) => !s.is_empty(),
-            TaleaValue::List(ref l) => !l.is_empty(),
-            TaleaValue::Tuple(ref t) => !t.is_empty(),
-            TaleaValue::Table(ref rows) => !rows.is_empty(),
-            TaleaValue::PyObject(_) => true,
-            #[cfg(feature = "r")]
-            TaleaValue::RObject(_) => true,
-            TaleaValue::Unit(_) => true,
-            TaleaValue::Null => false,
-        };
+        let truthy = cond_val.is_truthy();
         let body = if truthy { then_body } else { else_body };
         for stmt in body {
             self.execute_statement(stmt)?;
@@ -2509,8 +2615,9 @@ result = _talea_outer(obj, method_path, args, kwargs)
         body: &Vec<Statement>,
     ) -> std::result::Result<(), String> {
         let list_val = self.evaluate_expression(list)?;
-        if let TaleaValue::List(items) = list_val {
-            for val in items {
+        if let TaleaValue::List(ref items) = list_val {
+            let items_clone: Vec<TaleaValue> = items.read().unwrap().clone();
+            for val in items_clone {
                 self.environment.define(item.clone(), val);
                 for stmt in body {
                     self.execute_statement(stmt)?;
@@ -2522,13 +2629,438 @@ result = _talea_outer(obj, method_path, args, kwargs)
         }
     }
 
+    fn execute_while_statement(
+        &mut self,
+        condition: &Expression,
+        body: &[Statement],
+    ) -> std::result::Result<(), String> {
+        loop {
+            let cond = self.evaluate_expression(condition)?;
+            if !cond.is_truthy() {
+                break;
+            }
+            self.environment.push_scope();
+            let result = self.execute_body(body);
+            self.environment.pop_scope();
+            match result {
+                Ok(()) => {}
+                Err(e) if e == "__break__" => break,
+                Err(e) if e == "__continue__" => continue,
+                Err(e) => return Err(e),
+            }
+        }
+        Ok(())
+    }
+
+    fn execute_return_statement(
+        &mut self,
+        expr: Option<&Expression>,
+    ) -> std::result::Result<(), String> {
+        let val = if let Some(e) = expr {
+            self.evaluate_expression(e)?
+        } else {
+            TaleaValue::Null
+        };
+        // Encode return value in the error channel so it propagates up
+        // through execute_body. The caller (execute_function_call) unwraps it.
+        Err(format!("__return__:{}", serde_json::to_string(&talea_value_to_json_inner(&val)).unwrap_or_default()))
+    }
+
+    fn execute_try_catch_statement(
+        &mut self,
+        try_body: &[Statement],
+        error_var: &str,
+        catch_body: &[Statement],
+    ) -> std::result::Result<(), String> {
+        self.environment.push_scope();
+        let try_result = self.execute_body(try_body);
+        self.environment.pop_scope();
+        match try_result {
+            Ok(()) => Ok(()),
+            Err(e) if e.starts_with("__break__") || e.starts_with("__continue__") || e.starts_with("__return__") => Err(e),
+            Err(e) => {
+                self.environment.push_scope();
+                if !error_var.is_empty() {
+                    self.environment.define(error_var.to_string(), TaleaValue::String(e));
+                }
+                let catch_result = self.execute_body(catch_body);
+                self.environment.pop_scope();
+                catch_result
+            }
+        }
+    }
+
+    fn execute_function_def_by_name(
+        &mut self,
+        name: &str,
+        params: &[String],
+        body: &[Statement],
+    ) -> std::result::Result<(), String> {
+        self.functions.insert(name.to_string(), (params.to_vec(), body.to_vec()));
+        Ok(())
+    }
+
+    fn execute_function_call_by_name(
+        &mut self,
+        name: &str,
+        args: &[Expression],
+        destination: Option<&Expression>,
+    ) -> std::result::Result<(), String> {
+        let (params, body) = self.functions.get(name)
+            .ok_or_else(|| format!("Undefined function: {}", name))?
+            .clone();
+        if args.len() != params.len() {
+            return Err(format!(
+                "Function '{}' expects {} argument(s), got {}.",
+                name, params.len(), args.len()
+            ));
+        }
+        let evaluated_args: Vec<TaleaValue> = args.iter()
+            .map(|a| self.evaluate_expression(a))
+            .collect::<Result<Vec<_>, _>>()?;
+        self.environment.push_scope();
+        for (param, val) in params.iter().zip(evaluated_args.into_iter()) {
+            self.environment.define(param.clone(), val);
+        }
+        let result = self.execute_body(&body);
+        self.environment.pop_scope();
+        match result {
+            Ok(()) => {
+                if let Some(dest) = destination {
+                    let dest_name = self.get_identifier_name(dest)?;
+                    self.environment.define(dest_name, TaleaValue::Null);
+                }
+                Ok(())
+            }
+            Err(e) if e.starts_with("__return__:") => {
+                let json_str = &e["__return__:".len()..];
+                let val = serde_json::from_str::<serde_json::Value>(json_str)
+                    .map(|j| json_to_talea_value(&j))
+                    .unwrap_or(TaleaValue::Null);
+                if let Some(dest) = destination {
+                    let dest_name = self.get_identifier_name(dest)?;
+                    self.environment.define(dest_name, val);
+                }
+                Ok(())
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    fn execute_parallel_map_by_name(
+        &mut self,
+        item_name: &str,
+        list_expr: &Expression,
+        body: &[Statement],
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let dest_name = self.get_identifier_name(destination)?;
+        let list_val = self.evaluate_expression(list_expr)?;
+        let items = list_val.as_list()
+            .ok_or("parallel map requires a list".to_string())?;
+        let item_name = item_name.to_string();
+        let functions_clone = self.functions.clone();
+        let results: Vec<Result<TaleaValue, String>> = items
+            .into_par_iter()
+            .map(|item| {
+                let mut sub = Interpreter::new();
+                // Copy current environment variables into sub-interpreter
+                sub.environment.define(item_name.clone(), item);
+                // Copy functions
+                sub.functions = functions_clone.clone();
+                for stmt in body {
+                    sub.execute_statement(stmt)?;
+                }
+                // Return the item variable value as the mapped result
+                Ok(sub.environment.get(&item_name).unwrap_or(TaleaValue::Null))
+            })
+            .collect();
+        let mut mapped = Vec::new();
+        for r in results {
+            mapped.push(r?);
+        }
+        self.environment.define(dest_name, TaleaValue::list(mapped));
+        Ok(())
+    }
+
+    fn execute_parallel_for_by_name(
+        &mut self,
+        item_name: &str,
+        list_expr: &Expression,
+        body: &[Statement],
+    ) -> std::result::Result<(), String> {
+        let item_name = item_name.to_string();
+        let list_val = self.evaluate_expression(list_expr)?;
+        let items = list_val.as_list()
+            .ok_or("parallel for requires a list".to_string())?;
+        let functions_clone = self.functions.clone();
+        let errors: Vec<String> = items
+            .into_par_iter()
+            .filter_map(|item| {
+                let mut sub = Interpreter::new();
+                sub.environment.define(item_name.clone(), item);
+                sub.functions = functions_clone.clone();
+                for stmt in body {
+                    if let Err(e) = sub.execute_statement(stmt) {
+                        return Some(e);
+                    }
+                }
+                None
+            })
+            .collect();
+        if let Some(e) = errors.into_iter().next() {
+            return Err(e);
+        }
+        Ok(())
+    }
+
+    fn execute_create_channel_by_name(
+        &mut self,
+        name: &str,
+        capacity: Option<&Expression>,
+    ) -> std::result::Result<(), String> {
+        let cap = if let Some(cap_expr) = capacity {
+            match self.evaluate_expression(cap_expr)? {
+                TaleaValue::Number(n) => n as usize,
+                _ => 64,
+            }
+        } else {
+            64
+        };
+        let (tx, rx) = crossbeam_channel::bounded(cap);
+        self.channels.insert(name.to_string(), (tx, rx));
+        self.environment.define(name.to_string(), TaleaValue::Channel(name.to_string()));
+        Ok(())
+    }
+
+    fn execute_send_to_channel(
+        &mut self,
+        channel: &Expression,
+        value: &Expression,
+    ) -> std::result::Result<(), String> {
+        let ch_name = self.get_identifier_name(channel)?;
+        let val = self.evaluate_expression(value)?;
+        let tx = self.channels.get(&ch_name)
+            .map(|(tx, _)| tx.clone())
+            .ok_or_else(|| format!("Channel '{}' not found", ch_name))?;
+        tx.send(val).map_err(|e| format!("Channel send error: {}", e))?;
+        Ok(())
+    }
+
+    fn execute_recv_from_channel(
+        &mut self,
+        channel: &Expression,
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        let ch_name = self.get_identifier_name(channel)?;
+        let dest_name = self.get_identifier_name(destination)?;
+        let val = {
+            let (_, rx) = self.channels.get(&ch_name)
+                .ok_or_else(|| format!("Channel '{}' not found", ch_name))?;
+            rx.recv().map_err(|e| format!("Channel recv error: {}", e))?
+        };
+        self.environment.define(dest_name, val);
+        Ok(())
+    }
+
+    fn execute_spawn(
+        &mut self,
+        body: &[Statement],
+        handle_var: Option<&str>,
+    ) -> std::result::Result<(), String> {
+        let body_clone = body.to_vec();
+        let functions_clone = self.functions.clone();
+        // Snapshot environment vars into a vec for the spawned thread
+        let env_snapshot: Vec<(String, TaleaValue)> = {
+            // We just expose global scope vars
+            // (simplified: collect all vars from all scopes)
+            Vec::new()
+        };
+        let _ = std::thread::spawn(move || {
+            let mut sub = Interpreter::new();
+            sub.functions = functions_clone;
+            for (k, v) in env_snapshot {
+                sub.environment.define(k, v);
+            }
+            for stmt in &body_clone {
+                if let Err(e) = sub.execute_statement(stmt) {
+                    eprintln!("[spawned thread error]: {}", e);
+                    break;
+                }
+            }
+        });
+        if let Some(hvar) = handle_var {
+            self.environment.define(hvar.to_string(), TaleaValue::String("thread_handle".to_string()));
+        }
+        Ok(())
+    }
+
+    fn execute_free(
+        &mut self,
+        name: &Expression,
+    ) -> std::result::Result<(), String> {
+        let var_name = self.get_identifier_name(name)?;
+        self.memory_tracker.track_free(&var_name);
+        self.environment.free(&var_name);
+        Ok(())
+    }
+
+    fn execute_set_memory_limit(
+        &mut self,
+        megabytes: &Expression,
+    ) -> std::result::Result<(), String> {
+        let mb = match self.evaluate_expression(megabytes)? {
+            TaleaValue::Number(n) => n as usize,
+            other => return Err(format!("Memory limit must be a number, got {}", other)),
+        };
+        self.memory_tracker.set_limit_mb(mb);
+        println!("[Memory: limit set to {} MB]", mb);
+        Ok(())
+    }
+
+    fn execute_memory_scope(
+        &mut self,
+        body: &[Statement],
+    ) -> std::result::Result<(), String> {
+        let arena = crate::memory::TaleaArena::new(0);
+        self.environment.push_scope();
+        let result = self.execute_body(body);
+        self.environment.pop_scope();
+        println!("[Memory scope exited: {}]", arena.summary());
+        result
+    }
+
+    fn execute_db_connect(
+        &mut self,
+        alias: &str,
+        db_type: &Expression,
+        url: &Expression,
+    ) -> std::result::Result<(), String> {
+        #[cfg(feature = "db")]
+        {
+            let db_type_str = self.get_string_value(db_type)?;
+            let url_str = self.get_string_value(url)?;
+            crate::db::connect(&mut self.db_connections, alias, &db_type_str, &url_str)?;
+            println!("[DB: connected '{}' ({})]", alias, db_type_str);
+            Ok(())
+        }
+        #[cfg(not(feature = "db"))]
+        {
+            let _ = (alias, db_type, url);
+            Err("Database support not enabled. Rebuild with `--features db`.".to_string())
+        }
+    }
+
+    fn execute_db_query(
+        &mut self,
+        connection: &Expression,
+        sql: &Expression,
+        params: &[Expression],
+        destination: &Expression,
+    ) -> std::result::Result<(), String> {
+        #[cfg(feature = "db")]
+        {
+            let alias_name = self.get_identifier_name(connection)?;
+            let sql_str = self.get_string_value(sql)?;
+            let dest_name = self.get_identifier_name(destination)?;
+            let param_vals: Vec<TaleaValue> = params.iter()
+                .map(|p| self.evaluate_expression(p))
+                .collect::<Result<Vec<_>, _>>()?;
+            let result = crate::db::query(&self.db_connections, &alias_name, &sql_str, param_vals)?;
+            self.environment.define(dest_name, result);
+            Ok(())
+        }
+        #[cfg(not(feature = "db"))]
+        {
+            let _ = (connection, sql, params, destination);
+            Err("Database support not enabled. Rebuild with `--features db`.".to_string())
+        }
+    }
+
+    fn execute_db_execute(
+        &mut self,
+        connection: &Expression,
+        sql: &Expression,
+        params: &[Expression],
+    ) -> std::result::Result<(), String> {
+        #[cfg(feature = "db")]
+        {
+            let alias_name = self.get_identifier_name(connection)?;
+            let sql_str = self.get_string_value(sql)?;
+            let param_vals: Vec<TaleaValue> = params.iter()
+                .map(|p| self.evaluate_expression(p))
+                .collect::<Result<Vec<_>, _>>()?;
+            let rows_affected = crate::db::execute(&self.db_connections, &alias_name, &sql_str, param_vals)?;
+            println!("[DB: {} row(s) affected]", rows_affected);
+            Ok(())
+        }
+        #[cfg(not(feature = "db"))]
+        {
+            let _ = (connection, sql, params);
+            Err("Database support not enabled. Rebuild with `--features db`.".to_string())
+        }
+    }
+
+    fn execute_db_insert(
+        &mut self,
+        connection: &Expression,
+        table: &Expression,
+        data: &Expression,
+    ) -> std::result::Result<(), String> {
+        #[cfg(feature = "db")]
+        {
+            let alias_name = self.get_identifier_name(connection)?;
+            let table_name = self.get_string_value(table)?;
+            let data_val = self.evaluate_expression(data)?;
+            let map = match data_val {
+                TaleaValue::Map(m) => m,
+                _ => return Err("DB insert expects a map value".to_string()),
+            };
+            let rows_inserted = crate::db::insert(&self.db_connections, &alias_name, &table_name, map)?;
+            println!("[DB: {} row(s) inserted]", rows_inserted);
+            Ok(())
+        }
+        #[cfg(not(feature = "db"))]
+        {
+            let _ = (connection, table, data);
+            Err("Database support not enabled. Rebuild with `--features db`.".to_string())
+        }
+    }
+
+    fn execute_db_close(
+        &mut self,
+        connection: &Expression,
+    ) -> std::result::Result<(), String> {
+        #[cfg(feature = "db")]
+        {
+            let alias_name = self.get_identifier_name(connection)?;
+            crate::db::close(&mut self.db_connections, &alias_name)?;
+            println!("[DB: connection '{}' closed]", alias_name);
+            Ok(())
+        }
+        #[cfg(not(feature = "db"))]
+        {
+            let _ = connection;
+            Err("Database support not enabled. Rebuild with `--features db`.".to_string())
+        }
+    }
+
+    /// Execute a slice of statements, returning on first error.
+    fn execute_body(&mut self, body: &[Statement]) -> std::result::Result<(), String> {
+        for stmt in body {
+            self.execute_statement(stmt)?;
+        }
+        Ok(())
+    }
+
     fn talea_value_to_py(py: Python, value: &TaleaValue) -> PyObject {
         match value {
             TaleaValue::String(s) => s.into_py(py),
             TaleaValue::Number(n) => n.into_py(py),
             TaleaValue::PyObject(obj) => obj.clone_ref(py),
-            TaleaValue::List(l) => {
-                let items: Vec<PyObject> = l
+            TaleaValue::List(ref l) => {
+                let l_guard = l.read().unwrap();
+                let items: Vec<PyObject> = l_guard
                     .iter()
                     .map(|v| Interpreter::talea_value_to_py(py, v))
                     .collect();
@@ -2563,7 +3095,7 @@ result = _talea_outer(obj, method_path, args, kwargs)
                 .iter()
                 .map(|item| Interpreter::py_obj_to_talea(item, convert_df))
                 .collect();
-            TaleaValue::List(vals)
+            TaleaValue::list(vals)
         } else if convert_df && obj.hasattr("to_dict").unwrap_or(false) {
             if let Ok(method) = obj.getattr("to_dict") {
                 if let Ok(records) = method.call1(("records",)) {
@@ -2613,8 +3145,17 @@ result = _talea_outer(obj, method_path, args, kwargs)
                     .collect();
                 JsonValue::Array(json_rows)
             }
-            TaleaValue::List(l) | TaleaValue::Tuple(l) => JsonValue::Array(
-                l.iter()
+            TaleaValue::List(ref l) => {
+                let l_guard = l.read().unwrap();
+                JsonValue::Array(
+                    l_guard
+                        .iter()
+                        .map(|v| Interpreter::talea_value_to_json(v))
+                        .collect(),
+                )
+            }
+            TaleaValue::Tuple(t) => JsonValue::Array(
+                t.iter()
                     .map(|v| Interpreter::talea_value_to_json(v))
                     .collect(),
             ),
@@ -2623,6 +3164,7 @@ result = _talea_outer(obj, method_path, args, kwargs)
             #[cfg(feature = "r")]
             TaleaValue::RObject(_) => JsonValue::Null,
             TaleaValue::Null => JsonValue::Null,
+            _ => JsonValue::Null,
         }
     }
 
@@ -2630,8 +3172,9 @@ result = _talea_outer(obj, method_path, args, kwargs)
         match value {
             TaleaValue::String(s) => format!("'{}'", s.replace("'", "\\'")),
             TaleaValue::Number(n) => n.to_string(),
-            TaleaValue::List(l) => {
-                let elems: Vec<String> = l
+            TaleaValue::List(ref l) => {
+                let l_guard = l.read().unwrap();
+                let elems: Vec<String> = l_guard
                     .iter()
                     .map(|v| Interpreter::talea_value_to_r_arg(v))
                     .collect();
@@ -2653,11 +3196,11 @@ result = _talea_outer(obj, method_path, args, kwargs)
         } else if let Some(s) = obj.as_str() {
             TaleaValue::String(s.to_string())
         } else if let Some(vec) = obj.as_real_vector() {
-            TaleaValue::List(vec.iter().map(|v| TaleaValue::Number(*v as i64)).collect())
+            TaleaValue::list(vec.iter().map(|v| TaleaValue::Number(*v as i64)).collect())
         } else if let Some(vec) = obj.as_integer_vector() {
-            TaleaValue::List(vec.iter().map(|v| TaleaValue::Number(*v as i64)).collect())
+            TaleaValue::list(vec.iter().map(|v| TaleaValue::Number(*v as i64)).collect())
         } else if let Some(vec) = obj.as_str_vector() {
-            TaleaValue::List(
+            TaleaValue::list(
                 vec.iter()
                     .map(|v| TaleaValue::String(v.to_string()))
                     .collect(),
@@ -2683,9 +3226,11 @@ impl ToString for TaleaValue {
             TaleaValue::String(s) => s.clone(),
             TaleaValue::Number(n) => n.to_string(),
             TaleaValue::Float(f) => f.to_string(),
-            TaleaValue::List(l) => {
-                let items: Vec<String> = l.iter().map(|val| val.to_string_for_list()).collect();
-                format!("[List with {} items]:\n[{}]", l.len(), items.join(", "))
+            TaleaValue::Bool(b) => if *b { "true" } else { "false" }.to_string(),
+            TaleaValue::List(ref l) => {
+                let l_guard = l.read().unwrap();
+                let items: Vec<String> = l_guard.iter().map(|val| val.to_string_for_list()).collect();
+                format!("[List with {} items]:\n[{}]", l_guard.len(), items.join(", "))
             }
             TaleaValue::Tuple(t) => {
                 let items: Vec<String> = t.iter().map(|val| val.to_string_for_list()).collect();
@@ -2694,9 +3239,18 @@ impl ToString for TaleaValue {
             TaleaValue::Table(rows) => {
                 format!("<Table with {} rows>", rows.len())
             }
+            TaleaValue::Map(m) => {
+                let pairs: Vec<String> = m.iter().map(|(k, v)| format!("{}: {}", k, v.to_string())).collect();
+                format!("{{{}}}", pairs.join(", "))
+            }
             TaleaValue::PyObject(_) => "<pyobject>".to_string(),
             #[cfg(feature = "r")]
             TaleaValue::RObject(_) => "<robj>".to_string(),
+            TaleaValue::DbResult { count, columns, .. } => {
+                format!("<DbResult: {} rows, columns: {}>", count, columns.join(", "))
+            }
+            TaleaValue::Channel(id) => format!("<channel:{}>", id),
+            TaleaValue::Error(msg) => format!("Error: {}", msg),
             TaleaValue::Unit(t) => format!("Unit: {:?}", t),
             TaleaValue::Null => "null".to_string(),
         }

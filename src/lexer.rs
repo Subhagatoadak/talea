@@ -1,5 +1,28 @@
+//! Lexer (tokenizer) for the Talea language.
+//!
+//! Converts raw source text into a flat [`Vec<Token>`] that the
+//! [`Parser`](crate::parser::Parser) can consume.
+//!
+//! ## Design notes
+//! * All keywords are **case-insensitive** (`Load`, `LOAD`, and `load` all
+//!   produce `Token::Load`).
+//! * Several English synonyms map to the same token (e.g. `show`, `display`,
+//!   and `print` all become `Token::Print`).
+//! * Comment lines (starting with `#`) and all whitespace are silently skipped.
+//! * Unknown characters produce `Token::Illegal` rather than panicking, so the
+//!   parser can emit a friendly error message.
+
 // src/lexer.rs
 
+/// Every syntactic element in a Talea program is represented as a `Token`.
+///
+/// Variants are grouped into:
+/// - *Verbs* — command keywords that start a statement (`Load`, `Print`, …)
+/// - *Nouns* — unit/concept keywords used as arguments (`Words`, `NER`, …)
+/// - *Prepositions / connectors* — structural glue (`As`, `In`, `With`, …)
+/// - *Primary types* — runtime literals (`Identifier`, `String`, `Number`)
+/// - *Symbols* — punctuation (`LBracket`, `Comma`, …)
+/// - *Other* — sentinel values (`Eof`, `Illegal`)
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     // === Verbs (Commands) ===
@@ -98,6 +121,8 @@ pub enum Token {
     Subtract,
     Multiply,
     Divide,
+    Modulo,
+    Power,
     Help,
     Docs,
     History,
@@ -112,6 +137,7 @@ pub enum Token {
     Scala,
     Ruby,
     Julia,
+    Cpp,
     Install,
     Import,
     Call,
@@ -123,11 +149,70 @@ pub enum Token {
     If,
     Then,
     Else,
+    Otherwise,
     Is,
+    Not,
+    And,
+    Or,
     Greater,
     Less,
     Than,
     Equals,
+    NotEquals,
+
+    // === New: control flow keywords ===
+    While,
+    Break,
+    Continue,
+    Return,
+
+    // === New: error handling ===
+    Try,
+    Catch,
+
+    // === New: functions ===
+    Function,
+    With,       // reused — "define the function foo WITH inputs"
+    Inputs,
+    Output,
+
+    // === New: parallelism ===
+    Parallel,
+    Map,
+    Threads,
+    Spawn,
+    Join,
+    Channel,
+    Send,
+    Receive,
+    Collect,
+    Capacity,
+
+    // === New: memory management ===
+    Memory,
+    Limit,
+    Free,
+    Megabytes,
+    Gigabytes,
+    Scope,
+
+    // === New: database ===
+    Connect,
+    Query,
+    Insert,
+    Into,
+    Table,
+    Parameters,
+    Close,
+    Postgres,
+    Mysql,
+    Sqlite,
+    Env,
+
+    // === New: literals ===
+    True,
+    False,
+    Nothing,    // null literal
 
     // === Nouns (Units, Targets, Concepts) ===
     Words,
@@ -197,16 +282,23 @@ pub enum Token {
     Illegal(String),
 }
 
+/// Character-by-character scanner over a source string.
+///
+/// Holds a borrowed reference to the input (zero-copy) and tracks the current
+/// byte offset.  The `'a` lifetime ties the lexer to the string slice it scans.
 pub struct Lexer<'a> {
     input: &'a str,
     position: usize,
 }
 
 impl<'a> Lexer<'a> {
+    /// Create a new lexer positioned at the start of `input`.
     pub fn new(input: &'a str) -> Self {
         Lexer { input, position: 0 }
     }
 
+    /// Consume the entire input and return all tokens, including the final
+    /// `Token::Eof` sentinel.  This is the primary public entry point.
     pub fn all_tokens(&mut self) -> Vec<Token> {
         let mut tokens = Vec::new();
         loop {
@@ -220,6 +312,10 @@ impl<'a> Lexer<'a> {
         tokens
     }
 
+    /// Produce the next token from the remaining input.
+    ///
+    /// Leading whitespace and `#`-comments are consumed before dispatching on
+    /// the first significant character.
     fn next_token(&mut self) -> Token {
         self.skip_whitespace();
         if self.position >= self.input.len() {
@@ -247,12 +343,20 @@ impl<'a> Lexer<'a> {
             _ if ch.is_alphabetic() || ch == '_' => self.read_identifier(),
             _ if ch.is_digit(10) => self.read_number(),
             _ => {
+                // Unknown character — emit Illegal so the parser can surface a
+                // descriptive error rather than silently skipping input.
                 self.advance();
                 Token::Illegal(ch.to_string())
             }
         }
     }
 
+    /// Scan an alphanumeric/underscore/dot word and map it to a keyword token.
+    ///
+    /// If the word does not match any keyword the function returns
+    /// `Token::Identifier` so user-defined variable names pass through
+    /// unchanged.  The match is case-insensitive to support natural writing
+    /// styles (`Load`, `LOAD`, `load` are all valid).
     fn read_identifier(&mut self) -> Token {
         let start = self.position;
         while let Some(ch) = self.current_char() {
@@ -326,83 +430,162 @@ impl<'a> Lexer<'a> {
             "shapiro" => Token::Shapiro,
             "kolmogorov" => Token::Kolmogorov,
 
-            "add" => Token::Add,
+            // ── Arithmetic ─────────────────────────────────────────────────
+            "add"      => Token::Add,
             "subtract" => Token::Subtract,
             "multiply" => Token::Multiply,
-            "divide" => Token::Divide,
-            "help" | "docs" => Token::Help,
-            "history" => Token::History,
-            "run" | "execute" => Token::Run,
-            "exit" | "quit" => Token::Exit,
-            "words" => Token::Words,
-            "sentences" => Token::Sentences,
-            "lines" => Token::Lines,
-            "paragraphs" => Token::Paragraphs,
-            "characters" => Token::Characters,
-            "tokens" => Token::Tokens,
-            "types" | "uniques" => Token::Types,
-            "length" => Token::Length,
-            "diversity" => Token::Diversity,
-            "readability" => Token::Readability,
-            "stopwords" => Token::Stopwords,
-            "punctuation" => Token::Punctuation,
-            "numbers" => Token::Numbers,
-            "whitespace" => Token::Whitespace,
-            "pattern" => Token::Pattern,
-            "regex" => Token::Regex,
-            "normality" | "normal" => Token::Normality,
-            "entities" => Token::Entities,
-            "pos" => Token::POS,
-            "ner" => Token::NER,
-            "bigrams" => Token::Bigrams,
-            "trigrams" => Token::Trigrams,
-            "ngrams" => Token::Ngrams,
-            "url" => Token::URL,
-            "json" => Token::JSON,
-            "csv" => Token::CSV,
-            "xml" => Token::XML,
-            "first" => Token::First,
-            "last" => Token::Last,
-            "sample" => Token::Sample,
-            "distribution" => Token::Distribution,
-            "kwic" => Token::KWIC,
-            "as" => Token::As,
-            "to" => Token::To,
-            "from" => Token::From,
-            "in" => Token::In,
-            "into" => Token::Into,
-            "on" => Token::On,
-            "by" => Token::By,
+            "divide"   => Token::Divide,
+            "modulo" | "mod" | "remainder" => Token::Modulo,
+            "power" | "pow" | "exponent"   => Token::Power,
 
-            "with" => Token::With,
+            // ── Help / system ───────────────────────────────────────────────
+            "help" | "docs"      => Token::Help,
+            "history"            => Token::History,
+            "run" | "execute"    => Token::Run,
+            "exit" | "quit"      => Token::Exit,
+
+            // ── Nouns / units ───────────────────────────────────────────────
+            "words"        => Token::Words,
+            "sentences"    => Token::Sentences,
+            "lines"        => Token::Lines,
+            "paragraphs"   => Token::Paragraphs,
+            "characters"   => Token::Characters,
+            "tokens"       => Token::Tokens,
+            "types" | "uniques" => Token::Types,
+            "length"       => Token::Length,
+            "diversity"    => Token::Diversity,
+            "readability"  => Token::Readability,
+            "stopwords"    => Token::Stopwords,
+            "punctuation"  => Token::Punctuation,
+            "numbers"      => Token::Numbers,
+            "whitespace"   => Token::Whitespace,
+            "pattern"      => Token::Pattern,
+            "regex"        => Token::Regex,
+            "normality" | "normal" => Token::Normality,
+            "entities"     => Token::Entities,
+            "pos"          => Token::POS,
+            "ner"          => Token::NER,
+            "bigrams"      => Token::Bigrams,
+            "trigrams"     => Token::Trigrams,
+            "ngrams"       => Token::Ngrams,
+            "url"          => Token::URL,
+            "json"         => Token::JSON,
+            "csv"          => Token::CSV,
+            "xml"          => Token::XML,
+            "first"        => Token::First,
+            "last"         => Token::Last,
+            "sample"       => Token::Sample,
+            "distribution" => Token::Distribution,
+            "kwic"         => Token::KWIC,
+
+            // ── Prepositions / connectors ───────────────────────────────────
+            "as"    => Token::As,
+            "to"    => Token::To,
+            "from"  => Token::From,
+            "in"    => Token::In,
+            "into"  => Token::Into,
+            "on"    => Token::On,
+            "by"    => Token::By,
+            "with"  => Token::With,
             "using" => Token::Using,
 
-            "containing" => Token::Containing,
-            "starting_with" => Token::StartingWith,
-            "ending_with" => Token::EndingWith,
-            "ascending" => Token::Ascending,
-            "descending" => Token::Descending,
-            "top" => Token::Top,
-            "bottom" => Token::Bottom,
-            "use" => Token::Use,
+            // optional English glue words — consumed silently by the parser
+            "the" | "a" | "an" | "it" | "call" | "named"
+                | "called" | "name" | "store" | "put" | "be"
+                | "that" | "which" | "please" | "want" | "need"
+                | "would" | "like" | "next" | "then" | "finally"
+                | "first" | "also" | "after" => Token::Identifier(text.to_string()),
+
+            "containing"   => Token::Containing,
+            "starting_with" | "starting" => Token::StartingWith,
+            "ending_with"  | "ending"    => Token::EndingWith,
+            "ascending"    => Token::Ascending,
+            "descending"   => Token::Descending,
+            "top"          => Token::Top,
+            "bottom"       => Token::Bottom,
+
+            // ── Backends ────────────────────────────────────────────────────
+            "use"    => Token::Use,
             "python" => Token::Python,
-            "r" => Token::R, // New
-            "install" => Token::Install,
-            "import" => Token::Import,
-            "call" => Token::Call,
+            "r"      => Token::R,
+            "java"   => Token::Java,
+            "cpp" | "c++" => Token::Cpp,
+
+            // ── Imports / calls ─────────────────────────────────────────────
+            "install"    => Token::Install,
+            "import"     => Token::Import,
+            "call"       => Token::Call,
             "callmethod" => Token::CallMethod,
-            "for" => Token::For,
-            "each" => Token::Each,
-            "do" => Token::Do,
-            "end" => Token::End,
-            "if" => Token::If,
-            "then" => Token::Then,
-            "else" => Token::Else,
-            "is" => Token::Is,
+
+            // ── Control flow ─────────────────────────────────────────────────
+            "for"      => Token::For,
+            "each"     => Token::Each,
+            "do"       => Token::Do,
+            "end"      => Token::End,
+            "if"       => Token::If,
+            "when"     => Token::If,        // English alias
+            "then"     => Token::Then,
+            "else" | "otherwise" => Token::Else,
+            "while"    => Token::While,
+            "break"    => Token::Break,
+            "continue" => Token::Continue,
+            "return"   => Token::Return,
+
+            // ── Boolean / comparison ─────────────────────────────────────────
+            "is"      => Token::Is,
+            "not"     => Token::Not,
+            "and"     => Token::And,
+            "or"      => Token::Or,
             "greater" => Token::Greater,
-            "less" => Token::Less,
-            "than" => Token::Than,
+            "less"    => Token::Less,
+            "than"    => Token::Than,
             "equals" | "equal" => Token::Equals,
+
+            // ── Literals ─────────────────────────────────────────────────────
+            "true" | "yes"       => Token::True,
+            "false" | "no"       => Token::False,
+            "nothing" | "null" | "none" | "nil" => Token::Nothing,
+
+            // ── Error handling ───────────────────────────────────────────────
+            "try"   => Token::Try,
+            "catch" => Token::Catch,
+
+            // ── Functions ────────────────────────────────────────────────────
+            "function" | "procedure" | "routine" => Token::Function,
+            "inputs" | "parameters" | "arguments" | "args" => Token::Inputs,
+            "output" | "result" | "returns" => Token::Output,
+
+            // ── Parallelism ──────────────────────────────────────────────────
+            "parallel"  => Token::Parallel,
+            "map"       => Token::Map,
+            "threads"   => Token::Threads,
+            "spawn"     => Token::Spawn,
+            "join"      => Token::Join,
+            "channel"   => Token::Channel,
+            "send"      => Token::Send,
+            "receive" | "recv" => Token::Receive,
+            "collect"   => Token::Collect,
+            "capacity"  => Token::Capacity,
+
+            // ── Memory ───────────────────────────────────────────────────────
+            "memory"      => Token::Memory,
+            "limit"       => Token::Limit,
+            "free"        => Token::Free,
+            "megabytes" | "mb" => Token::Megabytes,
+            "gigabytes" | "gb" => Token::Gigabytes,
+            "scope"       => Token::Scope,
+
+            // ── Database ─────────────────────────────────────────────────────
+            "connect"    => Token::Connect,
+            "query"      => Token::Query,
+            "insert"     => Token::Insert,
+            "table"      => Token::Table,
+            "parameters" => Token::Parameters,
+            "close"      => Token::Close,
+            "postgres" | "postgresql" => Token::Postgres,
+            "mysql"      => Token::Mysql,
+            "sqlite"     => Token::Sqlite,
+            "env"        => Token::Env,
 
             _ => Token::Identifier(text.to_string()),
         }

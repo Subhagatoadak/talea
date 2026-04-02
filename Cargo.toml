@@ -16,21 +16,53 @@ path = "src/main.rs"
 
 
 [dependencies]
+# ── Core interpreter ──────────────────────────────────────────────────────────
 pyo3 = { version = "0.22.1", features = ["auto-initialize"] }
-extendr-api = { version = "0.8.0", optional = true }
-# This dependency is required for the R backend macros to work correctly.
+extendr-api    = { version = "0.8.0", optional = true }
 extendr-engine = { version = "0.8.0", optional = true }
-jni = "0.21.0"
-shellexpand = "3.1.0"
-reqwest = { version = "0.12", features = ["blocking", "json"] }
-serde = { version = "1.0", features = ["derive"] }
+jni            = "0.21.0"
+shellexpand    = "3.1.0"
+rustyline      = "12"
+
+# ── Serialisation ─────────────────────────────────────────────────────────────
+serde      = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-rustyline = "12"
+
+# ── HTTP / OpenAI ─────────────────────────────────────────────────────────────
+reqwest = { version = "0.12", features = ["blocking", "json"] }
+
+# ── Text / regex ──────────────────────────────────────────────────────────────
+regex = "1.10"
+
+# ── Parallelism ───────────────────────────────────────────────────────────────
+# rayon: data-parallel iterators (parallel map / for each)
+rayon = "1.10"
+# crossbeam: bounded channels for producer-consumer pipelines
+crossbeam-channel = "0.5"
+
+# ── Async runtime (needed by sqlx and AWS SDK) ────────────────────────────────
+tokio = { version = "1", features = ["full"] }
+
+# ── Database ──────────────────────────────────────────────────────────────────
+sqlx = { version = "0.8", features = [
+    "runtime-tokio-rustls",
+    "postgres",
+    "mysql",
+    "sqlite",
+    "chrono",
+    "json",
+], optional = true }
+
+# ── Memory management ─────────────────────────────────────────────────────────
+# bumpalo: fast arena allocator for large text workloads
+bumpalo = "3.16"
 
 [features]
 default = []
 # Enable support for the R backend through extendr.
 r = ["extendr-api", "extendr-engine"]
+# Enable PostgreSQL + MySQL + SQLite via sqlx.
+db = ["sqlx"]
 
 
 [build-dependencies]

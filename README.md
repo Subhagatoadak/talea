@@ -12,12 +12,20 @@ Named after the Latin word *talea*—meaning "a narrative thread" or "a story br
 ## ✨ Features
 
 * **📝 Plain-English Syntax:** Write code that reads like instructions, not cryptic symbols. `load "file.txt" as my_text` does exactly what it says.
-* **🔌 Pluggable Backends:** Seamlessly use powerful libraries from other languages. The current version integrates with **Python's spaCy** for advanced NLP, with a clear path to add R, Java, and more.
+* **🔌 Pluggable Backends:** Seamlessly use powerful libraries from other languages — **Python (spaCy, pandas, scikit-learn)** and **R (quanteda, stats)** — with a clear path to add more.
 * **📚 Library Imports:** Bring in any Python or R package or script and call its functions directly from Talea.
-* **💡 Interactive by Design:** An interactive REPL (Read-Eval-Print Loop) provides immediate feedback on your commands.
-* **⚙️ Built-in Logic:** Comes with built-in logic for file I/O, variable manipulation, arithmetic, and data filtering.
-* **🌱 Extensible Core:** The modular architecture (Lexer, Parser, Interpreter) makes it easy for contributors to add new commands, parsers, and execution logic.
-* **💻 Cross-Platform:** Designed to work on macOS, Linux, and Windows with the right setup.
+* **💡 Interactive by Design:** A full REPL with persistent history and multi-line block support provides immediate feedback on your commands.
+* **⚙️ Rich Built-in Logic:** File I/O, variable manipulation, arithmetic, filtering, regex, date math, and full NLP pipelines — all built-in.
+* **🧩 User-Defined Functions:** Define reusable functions in plain English: `define the function greet with inputs name as ... end`.
+* **🔁 Control Flow:** `if/else`, `while`, `for each`, `break`, `continue`, `return`, and `try/catch` error handling.
+* **⚡ Parallel Execution:** `parallel map` and `parallel for each` run iterations across CPU cores via Rayon. `spawn` launches background threads. Named channels enable producer-consumer pipelines.
+* **🗄️ Database Access:** Connect to PostgreSQL, MySQL, or SQLite from Talea scripts (`--features db`). Query, insert, execute, and close connections with English-style commands.
+* **🧠 Memory Management:** Set process-wide memory ceilings (`set memory limit to 512 megabytes`), free variables explicitly (`free my_var`), and use arena-scoped allocation for heavy text passes.
+* **🔢 Bytecode Compiler + VM:** An optional compilation tier (`--compile` flag) lowers Talea ASTs to a compact bytecode format (`.taleac`) executed by a stack-based VM for faster loop-heavy workloads.
+* **📖 Natural-Language Transpiler:** Pass a plain prose paragraph with `--english` and Talea will convert it into runnable code using a corpus-driven intent-matching pipeline — no API key required.
+* **🌱 Extensible Core:** The modular architecture (Lexer → Parser → Interpreter / Compiler / VM / NL-Parser) makes it easy to add new commands and backends.
+* **💻 Cross-Platform:** macOS, Linux, and Windows — plus a Tauri-based desktop IDE with Monaco editor.
+
 To learn more, see the [Complete Guide](docs/complete_guide.md) for installation, usage, saving results, and analysis commands. For a comprehensive reference of commands, NLP methods, statistics, and common errors, consult the [All-in-One Guide](docs/all_in_one_guide.md).
 
 ---
@@ -319,13 +327,66 @@ Talea understands a growing set of plain-English commands. The table below summa
 | `install` | Install a Python module or R package | `install python "textblob"` |
 | `call` | Invoke a function from an imported module | `call m sqrt 16 as result` |
 | `callmethod` | Invoke a method on an object | `callmethod blob sentiment as sentiment` |
-| `for each` | Loop over lists in a single line | `for each item in items do print item end` |
+| `for each` | Loop over lists | `for each item in items do print item end` |
+| `while` | Repeat while condition holds | `while count is greater than 0 do ... end` |
+| `if / else` | Conditional branching | `if score is greater than 5 do ... else ... end` |
+| `try / catch` | Error handling | `try ... catch error_msg ... end` |
+| `define the function` | User-defined function | `define the function add with inputs a, b as ... end` |
+| `call` (function) | Call a user-defined function | `call add with 3, 4 as result` |
+| `return` | Return a value from a function | `return total` |
+| `break` / `continue` | Loop control | `break` / `continue` |
+| `parallel map` | Map in parallel across CPU cores | `parallel map each x in nums do ... end as results` |
+| `parallel for each` | Side-effect loop in parallel | `parallel for each doc in docs do ... end` |
+| `spawn` | Launch a background thread | `spawn do ... end` |
+| `create channel` | Named MPSC channel | `create channel my_ch with capacity 100` |
+| `send to channel` | Send a value to a channel | `send result to channel my_ch` |
+| `receive from channel` | Receive a value from a channel | `receive from channel my_ch as msg` |
+| `free` | Free a variable's memory | `free my_var` |
+| `set memory limit` | Cap memory usage | `set memory limit to 512 megabytes` |
+| `print memory usage` | Show memory usage summary | `print memory usage` |
+| `with memory scope` | Arena-scoped allocation block | `with memory scope do ... end` |
+| `connect to` (db) | Open a database connection | `connect to postgres "..." as db` |
+| `query` (db) | Run a SELECT query | `query "SELECT * FROM t" in db as rows` |
+| `run` (db) | Execute a DML statement | `run "UPDATE t SET x=1" in db` |
+| `insert into` (db) | Insert a row | `insert my_data into db table "users"` |
+| `close` (db) | Close a database connection | `close db` |
 | `openai` | Query OpenAI models | `openai "Hello" as reply` |
 | `add/subtract/multiply/divide` | Arithmetic operations | `add 5 to count as new_count` |
 | `save` | Write content to a file | `save results to "out.txt"` |
 | `print` | Display a value | `print summary` |
 
 Custom commands can be added in Rust by extending the parser and interpreter, enabling domain-specific workflows.
+
+---
+
+## 🏗️ Architecture Overview
+
+```
+Source (.talea)  ──►  Lexer  ──►  Parser  ──►  AST
+                                                │
+                                    ┌───────────┼───────────┐
+                                    ▼           ▼           ▼
+                              Interpreter   Compiler     NL-Parser
+                             (tree-walk)   (bytecode)  (plain prose)
+                                    │           │
+                                    └──────►  VM
+                                         (stack-based)
+```
+
+| Module | Purpose |
+|--------|---------|
+| `src/lexer.rs` | Tokenisation with English synonyms and glue-word handling |
+| `src/parser.rs` | Recursive-descent parser producing typed AST nodes |
+| `src/ast.rs` | Full AST: 60+ statement variants covering all language features |
+| `src/runtime/mod.rs` | `TaleaValue` (15 variants) + scoped `Environment` stack |
+| `src/runtime/interpreter.rs` | Tree-walking interpreter — the primary execution path |
+| `src/compiler.rs` | Lowers AST → `Chunk` (opcode stream + constant pool) |
+| `src/bytecode.rs` | `OpCode` enum and `Chunk` serialisable to `.taleac` |
+| `src/vm.rs` | Stack-based virtual machine executing `Chunk` |
+| `src/nl_parser.rs` | 5-stage English prose → AST transpiler (no external API) |
+| `src/memory.rs` | `MemoryTracker` + `TaleaArena` (bumpalo-backed) |
+| `src/db.rs` | `ConnectionRegistry` for Postgres/MySQL/SQLite via sqlx |
+| `src/openai_pipeline.rs` | Thin OpenAI REST client |
 
 ## 🏗️ Building a macOS Release
 
